@@ -156,7 +156,7 @@ def create_ass_dialogue(start, end, text, style="Default"):
     start_fmt = format_time_ass(start)
     end_fmt = format_time_ass(end)
     text_escaped = text.replace("\\", "\\\\").replace("{", "\\{").replace("}", "\\}")
-    return f"Dialogue: 0,{start_fmt},{end_fmt},{style},,0,0,0,,{text_escaped}"
+    return f"Dialogue: 0,{start_fmt},{end_fmt},{style},,0,0,0,,{text_escaped}\n"
 
 def transcribe_video(video_path, model, batched_model, output_format="ass"):
     """转录音频并保存为字幕格式"""
