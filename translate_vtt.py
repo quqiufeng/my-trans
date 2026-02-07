@@ -293,10 +293,11 @@ def translate_vtt(vtt_path, output_path=None, batch_size=128, source_lang=None):
         
         ass_content = create_bilingual_ass(blocks, translations, original_content)
         
-        with open(vtt_path, 'w', encoding='utf-8-sig') as f:
+        bilingual_path = vtt_path.parent / f"{vtt_path.stem.rsplit('_', 1)[0]}.ass"
+        with open(bilingual_path, 'w', encoding='utf-8-sig') as f:
             f.write(ass_content)
         
-        print(f"\n完成! 已更新字幕: {vtt_path.name}")
+        print(f"\n完成! 双语字幕: {bilingual_path.name}")
     else:
         vtt_content = create_bilingual_vtt(blocks, translations)
         
