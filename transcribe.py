@@ -15,6 +15,20 @@ from faster_whisper import WhisperModel, BatchedInferencePipeline
 
 WHISPER_MODEL_PATH = "e:/cuda/faster-whisper-medium"
 
+def print_memory_usage():
+    """打印当前 GPU 内存使用情况"""
+    import torch
+    if torch.cuda.is_available():
+        allocated = torch.cuda.memory_allocated() / (1024**3)
+        reserved = torch.cuda.memory_reserved() / (1024**3)
+        print(f"  GPU Memory: 已分配 {allocated:.2f}GB, 保留 {reserved:.2f}GB")
+
+def cleanup_whisper(model):
+    """释放 Whisper 模型 GPU 内存"""
+    import torch
+    del model
+    torch.cuda.empty_cache()
+
 def wrap_text(text, max_chars=50):
     """长文本自动换行"""
     if not text:
@@ -189,9 +203,11 @@ def main():
     print("加载 Whisper 模型...")
     model = WhisperModel(WHISPER_MODEL_PATH, device="cuda", compute_type="float16")
     batched_model = BatchedInferencePipeline(model=model)
+    model.eval()
     print("模型加载完成!\n")
+    print_memory_usage()
     
-    print(f"处理 {len(video_files)} 个视频")
+    print(f"\n处理 {len(video_files)} 个视频")
     print("-" * 60)
     
     total_elapsed = 0
@@ -204,6 +220,7 @@ def main():
         results.append((video.name, elapsed, file_size))
         total_elapsed += elapsed
         total_size += file_size
+        print_memory_usage()
     
     print("-" * 60)
     print(f"完成! 共 {len(results)} 个视频")
@@ -215,6 +232,10 @@ def main():
     print("-" * 70)
     for name, elapsed, file_size in results:
         print(f"{name:<50} {file_size:<10.1f}MB {format_elapsed(elapsed)}")
+    
+    print("\n释放 GPU 内存...")
+    cleanup_whisper(model)
+    print_memory_usage()
 
 if __name__ == "__main__":
     main()

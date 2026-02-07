@@ -11,9 +11,41 @@ import ctranslate2
 import transformers
 import re
 import time
+import sys
 from pathlib import Path
 
 MODEL_DIR = "E:/cuda/nllb-200-3.3B-ct2-float16"
+
+LANG_CODE_MAP = {
+    'ja': 'jpn_Jpan',
+    'japanese': 'jpn_Jpan',
+    'en': 'eng_Latn',
+    'english': 'eng_Latn',
+    'zh': 'zho_Hans',
+    'chinese': 'zho_Hans',
+    'ko': 'kor_Hang',
+    'korean': 'kor_Hang',
+    'fr': 'fra_Latn',
+    'french': 'fra_Latn',
+    'de': 'deu_Latn',
+    'german': 'deu_Latn',
+    'es': 'spa_Latn',
+    'spanish': 'spa_Latn',
+}
+
+SUPPORTED_LANGUAGES = list(LANG_CODE_MAP.keys())
+
+def detect_language_simple(texts):
+    """简单的语言检测"""
+    try:
+        from langdetect import detect, LangDetectException
+
+        sample = texts[0][:200] if texts else ""
+        lang = detect(sample)
+        return LANG_CODE_MAP.get(lang, 'eng_Latn')
+
+    except ImportError:
+        return None
 
 def load_translator():
     """加载 CTranslate2 翻译模型"""
@@ -23,12 +55,12 @@ def load_translator():
 
 def translate_batch_fast(translator, tokenizer, texts, source_lang="eng_Latn", target_lang="zho_Hans", batch_size=128):
     """批量翻译 - 优化版"""
+    import torch
     all_results = []
     
     for i in range(0, len(texts), batch_size):
         batch_texts = texts[i:i + batch_size]
         
-        # 批量 tokenization
         encoded = tokenizer(batch_texts, return_tensors="pt", padding=True)
         input_ids = encoded["input_ids"]
         
@@ -36,11 +68,8 @@ def translate_batch_fast(translator, tokenizer, texts, source_lang="eng_Latn", t
         
         for j in range(len(batch_texts)):
             tokens = tokenizer.convert_ids_to_tokens(input_ids[j])
-            
-            # 翻译
             results = translator.translate_batch([tokens], target_prefix=[[target_lang]])
             
-            # 清理输出
             result_tokens = results[0].hypotheses[0]
             if result_tokens and result_tokens[0] == target_lang:
                 result_tokens = result_tokens[1:]
@@ -50,8 +79,13 @@ def translate_batch_fast(translator, tokenizer, texts, source_lang="eng_Latn", t
         
         all_results.extend(batch_results)
         
+        del encoded, input_ids
+        torch.cuda.empty_cache()
+        
         progress = min(i + batch_size, len(texts))
-        print(f"  进度: {progress}/{len(texts)} ({progress*100//len(texts)}%)")
+        print(f"  进度: {progress}/{len(texts)} ({progress*100//len(texts)}%)", end='\r')
+    
+    print(f"  进度: {len(texts)}/{len(texts)} (100%)")
     
     return all_results
 
@@ -92,8 +126,9 @@ def create_bilingual_vtt(blocks, translations):
     
     return vtt_content
 
-def translate_vtt(vtt_path, output_path=None, batch_size=128):
+def translate_vtt(vtt_path, output_path=None, batch_size=128, source_lang=None):
     """翻译 VTT 文件为双语字幕"""
+    import torch
     vtt_path = Path(vtt_path)
     
     if output_path is None:
@@ -102,22 +137,46 @@ def translate_vtt(vtt_path, output_path=None, batch_size=128):
     print(f"加载翻译模型: {MODEL_DIR}")
     translator, tokenizer = load_translator()
     print(f"设备: {translator.device}\n")
+    print_memory_usage()
     
-    print(f"解析字幕: {vtt_path.name}")
+    print(f"\n解析字幕: {vtt_path.name}")
     blocks = parse_vtt(vtt_path)
     print(f"共 {len(blocks)} 条字幕\n")
     
-    print("开始翻译 (English -> 中文)...")
-    start_time = time.time()
-    
-    # 提取所有文本
     all_texts = [b['text'] for b in blocks]
     
-    # 批量翻译
+    if source_lang is None:
+        print("检测字幕语言...")
+        source_lang = detect_language_simple(all_texts)
+        
+        if source_lang is None:
+            print("未安装 langdetect，使用关键词检测...")
+            sample = all_texts[0].lower() if all_texts else ""
+            
+            japanese_chars = sum(1 for c in sample if '\u3040' <= c <= '\u309f' or '\u30a0' <= c <= '\u30ff')
+            chinese_chars = sum(1 for c in sample if '\u4e00' <= c <= '\u9fff')
+            
+            if japanese_chars > chinese_chars:
+                source_lang = 'jpn_Jpan'
+                print("检测到语言: 日语 (jpn_Jpan)")
+            elif chinese_chars > 0:
+                source_lang = 'zho_Hans'
+                print("检测到语言: 中文 (zho_Hans)")
+            else:
+                source_lang = 'eng_Latn'
+                print("检测到语言: 英语 (eng_Latn)")
+    
+    target_lang = 'zho_Hans'
+    lang_name = {'jpn_Jpan': '日语', 'eng_Latn': '英语', 'zho_Hans': '中文'}.get(source_lang, source_lang)
+    print(f"翻译: {lang_name} -> 中文\n")
+    
+    print("开始翻译...")
+    start_time = time.time()
+    
     translations = translate_batch_fast(
         translator, tokenizer, all_texts,
-        source_lang="eng_Latn",
-        target_lang="zho_Hans",
+        source_lang=source_lang,
+        target_lang=target_lang,
         batch_size=batch_size
     )
     
@@ -132,6 +191,11 @@ def translate_vtt(vtt_path, output_path=None, batch_size=128):
         f.write(vtt_content)
     
     print(f"\n完成! 保存至: {output_path}")
+    
+    print("释放 GPU 内存...")
+    cleanup_translator(translator, tokenizer)
+    print_memory_usage()
+    
     return output_path
 
 def main():
@@ -139,15 +203,27 @@ def main():
     from pathlib import Path
     
     vtt_files = []
+    source_lang = None
     
-    if len(sys.argv) < 2:
-        # 不带参数时，扫描当前目录的 .vtt 文件
+    if len(sys.argv) >= 2 and sys.argv[1].startswith('--lang='):
+        source_lang = sys.argv[1].replace('--lang=', '')
+        args = sys.argv[2:]
+    elif len(sys.argv) >= 3 and sys.argv[1] == '--lang':
+        source_lang = sys.argv[2]
+        args = sys.argv[3:]
+    else:
+        args = sys.argv[1:]
+    
+    if not args:
         current_dir = Path(".")
         vtt_files = list(current_dir.glob("*.vtt")) + list(current_dir.glob("*.VTT"))
         
         if not vtt_files:
             print("用法:")
             print("  python translate_vtt.py 字幕.vtt")
+            print("  python translate_vtt.py --lang=ja 字幕.vtt")
+            print()
+            print("支持语言: ja(日语), en(英语), zh(中文), ko(韩语), fr(法语), de(德语), es(西班牙语)")
             print()
             print(f"模型目录: {MODEL_DIR}")
             print()
@@ -157,7 +233,7 @@ def main():
         vtt_files = [v.resolve() for v in vtt_files]
         print(f"扫描当前目录，找到 {len(vtt_files)} 个字幕文件")
     else:
-        vtt_path = sys.argv[1]
+        vtt_path = args[0]
         path = Path(vtt_path)
         if path.exists():
             vtt_files = [path.resolve()]
@@ -168,7 +244,7 @@ def main():
     for vtt_path in vtt_files:
         print()
         print("=" * 60)
-        translate_vtt(vtt_path)
+        translate_vtt(vtt_path, source_lang=source_lang)
 
 if __name__ == "__main__":
     main()

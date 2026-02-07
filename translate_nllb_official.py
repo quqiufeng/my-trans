@@ -14,14 +14,31 @@ from pathlib import Path
 
 MODEL_NAME = "facebook/nllb-200-distilled-1.3B"
 
+def cleanup_model(tokenizer, model):
+    """释放 GPU 内存"""
+    import torch
+    del model
+    del tokenizer
+    torch.cuda.empty_cache()
+
+def print_memory_usage():
+    """打印当前 GPU 内存使用情况"""
+    import torch
+    if torch.cuda.is_available():
+        allocated = torch.cuda.memory_allocated() / (1024**3)
+        reserved = torch.cuda.memory_reserved() / (1024**3)
+        print(f"  GPU Memory: 已分配 {allocated:.2f}GB, 保留 {reserved:.2f}GB")
+
 def load_translator():
     """加载翻译模型到 GPU"""
     import torch
     tokenizer = transformers.AutoTokenizer.from_pretrained(MODEL_NAME, use_fast=False)
     model = transformers.AutoModelForSeq2SeqLM.from_pretrained(MODEL_NAME)
     model = model.to("cuda")
+    model.eval()
     return tokenizer, model
 
+@torch.no_grad()
 def translate_text(tokenizer, model, text, source_lang="eng_Latn", target_lang="zho_Hans"):
     """翻译单条文本"""
     import torch
@@ -39,10 +56,14 @@ def translate_text(tokenizer, model, text, source_lang="eng_Latn", target_lang="
         max_new_tokens=512
     )
     result = tokenizer.batch_decode(generated_tokens, skip_special_tokens=True)
+    
+    del encoded, generated_tokens
     return result[0]
 
+@torch.no_grad()
 def translate_batch(tokenizer, model, texts, source_lang="eng_Latn", target_lang="zho_Hans"):
-    """逐条翻译"""
+    """批量翻译"""
+    import torch
     results = []
     for text in texts:
         results.append(translate_text(tokenizer, model, text, source_lang, target_lang))
@@ -91,8 +112,9 @@ def translate_vtt(vtt_path, output_path=None, batch_size=8):
     print(f"加载翻译模型: {MODEL_NAME}")
     tokenizer, model = load_translator()
     print("模型加载成功! (使用 Transformers)\n")
+    print_memory_usage()
     
-    print(f"解析字幕: {vtt_path.name}")
+    print(f"\n解析字幕: {vtt_path.name}")
     blocks = parse_vtt(vtt_path)
     print(f"共 {len(blocks)} 条字幕\n")
     
@@ -113,7 +135,9 @@ def translate_vtt(vtt_path, output_path=None, batch_size=8):
         translations.extend(batch_trans)
         
         progress = min(i + batch_size, len(blocks))
-        print(f"  进度: {progress}/{len(blocks)} ({progress*100//len(blocks)}%)")
+        print(f"  进度: {progress}/{len(blocks)} ({progress*100//len(blocks)}%)", end='\r')
+    
+    print(f"  进度: {len(blocks)}/{len(blocks)} (100%)")
     
     elapsed = time.time() - start_time
     print(f"\n翻译耗时: {elapsed:.2f}秒 ({elapsed/len(blocks)*1000:.0f}ms/条)")
@@ -126,6 +150,11 @@ def translate_vtt(vtt_path, output_path=None, batch_size=8):
         f.write(vtt_content)
     
     print(f"\n完成! 保存至: {output_path}")
+    
+    print("释放 GPU 内存...")
+    cleanup_model(tokenizer, model)
+    print_memory_usage()
+    
     return output_path
 
 def main():
