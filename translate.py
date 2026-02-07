@@ -65,7 +65,7 @@ def detect_language_simple(texts):
 def load_translator():
     """加载 CTranslate2 翻译模型"""
     translator = ctranslate2.Translator(MODEL_DIR, device="cuda")
-    tokenizer = transformers.AutoTokenizer.from_pretrained("facebook/nllb-200-distilled-1.3B")
+    tokenizer = transformers.AutoTokenizer.from_pretrained(MODEL_DIR)
     return translator, tokenizer
 
 def translate_batch_fast(translator, tokenizer, texts, source_lang="eng_Latn", target_lang="zho_Hans", batch_size=128):
