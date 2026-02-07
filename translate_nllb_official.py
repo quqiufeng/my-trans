@@ -194,8 +194,17 @@ def translate_vtt(vtt_path, output_path=None, batch_size=8):
     print_memory_usage()
     
     print(f"\n解析字幕: {vtt_path.name}")
-    blocks = parse_vtt(vtt_path)
+    
+    if vtt_path.suffix.lower() == '.ass':
+        blocks = parse_ass(vtt_path)
+    else:
+        blocks = parse_vtt(vtt_path)
+    
     print(f"共 {len(blocks)} 条字幕\n")
+    
+    if len(blocks) == 0:
+        print("错误: 无法解析字幕文件！")
+        return
     
     print("开始翻译 (English -> 中文)...")
     start_time = time.time()
@@ -258,17 +267,17 @@ def main():
     vtt_files = []
     
     if len(sys.argv) < 2:
-        # 不带参数时，扫描当前目录的 .vtt 文件
+        # 不带参数时，扫描当前目录的字幕文件
         current_dir = Path(".")
-        vtt_files = list(current_dir.glob("*.vtt")) + list(current_dir.glob("*.VTT"))
+        vtt_files = list(current_dir.glob("*.vtt")) + list(current_dir.glob("*.VTT")) + list(current_dir.glob("*.ass")) + list(current_dir.glob("*.ASS"))
         
         if not vtt_files:
             print("用法:")
-            print("  python translate_nllb_official.py 字幕.vtt")
+            print("  python translate_nllb_official.py 字幕.vtt/字幕.ass")
             print()
             print(f"模型: {MODEL_NAME}")
             print()
-            print("当前目录没有找到 .vtt 字幕文件")
+            print("当前目录没有找到字幕文件")
             return
         
         vtt_files = [v.resolve() for v in vtt_files]
