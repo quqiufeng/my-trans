@@ -1,60 +1,154 @@
-# AI 视频字幕生成与翻译工具
+# my-trans
 
-**运行环境：Windows 10/11 + GPU（推荐 NVIDIA RTX 3060+）**
+> **本脚本用于 Windows 10/11 + GPU 环境运行**
 
-## 支持功能
+AI 时代已经来临，解放双手！
 
-| 功能 | 语言 | 模型 |
-|------|------|------|
-| 语音识别 | 英文、日文、韩文 | faster-whisper-large-v3 |
-| 字幕翻译 | 多语言 | NLLB-200 1.3B |
+基于 AI 的视频字幕生成与翻译工具，支持多语言自动检测，生成中文双语字幕。
 
-## 快速开始
+AI-powered video subtitle generation and translation tool. Supports automatic language detection for multilingual videos, generating Chinese bilingual subtitles.
 
-### 1. 安装依赖
+---
+
+## YouTube 视频字幕一键生成:
 
 ```bash
-pip install faster-whisper ctranslate2 transformers langdetect
+# 1. 安装 yt-dlp
+pip install yt-dlp
+
+# 2. 设置代理并下载视频（最佳画质，自动合并）
+export http_proxy="http://192.168.124.3:7897"
+export https_proxy="http://192.168.124.3:7897"
+yt-dlp -o "%(title)s.%(ext)s" -f b --restrict-filenames "https://www.youtube.com/watch?v=xxxxx"
+
+# 3. 用 AI 生成字幕（自动检测语言）
+python transcribe.py video.mp4
+
+# 4. 翻译成中文双语字幕
+python translate.py video.ass
 ```
 
-### 2. 下载模型
+---
+
+## AI 协作 / AI Collaboration
+
+| 角色 / Role | 工具 / Tool | 说明 / Description |
+|-----------|-------------|------------------|
+| 需求与开发 / Requirement & Development | OpenCode | AI 编程助手 |
+| 语音识别 / Speech Recognition | faster-whisper | OpenAI Whisper 的 CTranslate2 优化版 |
+| 翻译引擎 / Translation Engine | CTranslate2 | 高性能 Transformer 推理引擎 |
+| 多语言翻译 / Multilingual Translation | NLLB-200 | Meta AI 200+ 语言翻译模型 |
+
+---
+
+## 技术架构 / Technical Architecture
+
+### 核心模型 / Core Models
+
+| 功能 / Function | 模型 / Model | 说明 / Description |
+|----------------|-------------|-------------------|
+| 语音识别 / Speech Recognition | faster-whisper | OpenAI Whisper 的 CTranslate2 优化版 |
+| 翻译 / Translation | NLLB-200-3.3B | Meta 多语言翻译模型，支持 200+ 语言 |
+
+### 技术栈 / Tech Stack
+
+- **faster-whisper**: 基于 CTranslate2 的 Whisper 推理加速
+- **CTranslate2**: 高性能 Transformer 推理引擎
+- **transformers**: Hugging Face 模型库
+
+---
+
+## 模型下载 / Model Download
+
+### 使用下载脚本 (推荐 / Recommended)
 
 ```bash
 python download_models.py
 ```
 
-模型存放路径：`E:/cuda/`
-
-### 3. 生成字幕
+### Whisper 模型 / Whisper Model
 
 ```bash
-# 英文/日文/韩文视频 -> 识别 + 生成 ASS 字幕
-python transcribe.py 视频.mp4
-
-# 只翻译现有字幕
-python translate.py 字幕.ass
-python translate_nllb_official.py 字幕.ass
+# 模型路径 / Model path: e:/cuda/faster-whisper-medium
 ```
 
-## 文件说明
+### NLLB 翻译模型 / NLLB Translation Model
 
-| 文件 | 功能 |
+```bash
+huggingface-cli download Derur/nllb-200-3.3B-ct2-float16 --local-dir E:/cuda/nllb-200-3.3B-ct2-float16 --local-dir-use-symlinks false
+```
+
+---
+
+## 环境配置 / Environment Setup
+
+### Python 版本
+- Python 3.9+
+
+### 依赖安装
+
+```bash
+# PyTorch (GPU) - Windows CUDA 11.8
+pip install torch==2.7.1+cu118 torchvision==0.22.1+cu118 torchaudio==2.7.1+cu118 --index-url https://download.pytorch.org/whl/cu118
+
+# 核心依赖
+pip install faster-whisper==1.2.1
+pip install ctranslate2==4.7.1
+pip install transformers==4.35.0
+pip install huggingface_hub==0.16.4
+pip install tokenizers==0.14.0
+```
+
+---
+
+## 使用方法 / Usage
+
+### 1. 生成字幕
+
+```bash
+python transcribe.py video.mp4
+```
+输出: `video.ass`
+
+### 2. 翻译为双语字幕
+
+```bash
+python translate.py video.ass
+```
+输出: `video.bilingual.vtt`
+
+### 批量处理
+
+```bash
+python transcribe.py video1.mp4 video2.mp4 video3.mp4
+```
+
+### 支持语言
+
+| 语言代码 | Language |
+|---------|----------|
+| `ja` | Japanese |
+| `en` | English |
+| `zh` | Chinese |
+| `ko` | Korean |
+| `fr` | French |
+| `de` | German |
+| `es` | Spanish |
+
+---
+
+## 脚本说明
+
+| 脚本 | 功能 |
 |------|------|
-| `transcribe.py` | 语音识别，生成 ASS 字幕 |
+| `download_models.py` | 下载模型到本地 |
+| `transcribe.py` | 使用 faster-whisper 生成 ASS 字幕 |
 | `my_whisper.py` | OpenAI Whisper 识别（备用） |
-| `translate.py` | CTranslate2 翻译（推荐，速度快） |
-| `translate_nllb_official.py` | Transformers 翻译（CPU 模式） |
-| `download_models.py` | 下载模型文件 |
+| `translate.py` | 使用 CTranslate2+NLLB 翻译为双语字幕 |
+| `translate_nllb_official.py` | 官方 transformers 版本的翻译脚本 |
 
-## 模型路径
+---
 
-| 模型 | 路径 |
-|------|------|
-| Whisper | `E:/cuda/faster-whisper-large-v3/` |
-| NLLB | `E:/cuda/nllb-200-3.3B-ct2-float16/` |
+## License
 
-## 注意事项
-
-- 模型文件较大，确保磁盘空间充足
-- GPU 内存建议 8GB 以上
-- 首次运行会自动下载模型
+MIT
