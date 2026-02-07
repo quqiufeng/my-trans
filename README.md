@@ -8,9 +8,9 @@
 
 AI 时代已经来临，解放双手！
 
-基于 AI 的视频字幕生成与翻译工具，支持生成英文字幕并翻译为中文双语字幕。
+基于 AI 的视频字幕生成与翻译工具，支持多语言自动检测，生成中文双语字幕。
 
-AI-powered video subtitle generation and translation tool. Generate English subtitles and translate them into Chinese bilingual subtitles.
+AI-powered video subtitle generation and translation tool. Supports automatic language detection for multilingual videos, generating Chinese bilingual subtitles.
 
 ---
 
@@ -166,6 +166,42 @@ python transcribe.py video.mp4
 python translate_vtt.py video.vtt
 ```
 输出 / Output: `video.bilingual.vtt` (双语字幕 / Bilingual subtitles)
+
+### 自动语言检测 / Auto Language Detection
+
+支持自动检测字幕语言并翻译为中文：
+
+```bash
+# 自动检测语言并翻译为中文双语字幕
+python translate_vtt.py video.vtt
+```
+
+支持的语言 / Supported Languages:
+
+| 语言代码 | Language | 说明 / Description |
+|---------|----------|-------------------|
+| `ja` | Japanese | 日语 |
+| `en` | English | 英语 |
+| `zh` | Chinese | 中文 |
+| `ko` | Korean | 韩语 |
+| `fr` | French | 法语 |
+| `de` | German | 德语 |
+| `es` | Spanish | 西班牙语 |
+
+### 手动指定语言 / Manual Language Selection
+
+如需指定源语言，使用 `--lang` 参数：
+
+```bash
+# 日语视频
+python translate_vtt.py --lang=ja video.vtt
+
+# 韩语视频
+python translate_vtt.py --lang=ko video.vtt
+
+# 英语视频
+python translate_vtt.py --lang=en video.vtt
+```
 
 ### 批量处理 / Batch Processing
 
