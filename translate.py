@@ -265,9 +265,14 @@ def translate_vtt(vtt_path, output_path=None, batch_size=128, source_lang=None):
                 source_lang = 'eng_Latn'
                 print("检测到语言: 英语 (eng_Latn)")
     
-    target_lang = 'zho_Hans'
-    lang_name = {'jpn_Jpan': '日语', 'eng_Latn': '英语', 'zho_Hans': '中文'}.get(source_lang, source_lang)
-    print(f"翻译: {lang_name} -> 中文\n")
+    source_name = {'jpn_Jpan': '日语', 'eng_Latn': '英语', 'zho_Hans': '中文'}.get(source_lang, source_lang)
+    target_name = {'eng_Latn': '英语', 'zho_Hans': '中文', 'jpn_Jpan': '日语', 'kor_Hang': '韩语'}.get(target_lang, target_lang)
+    
+    print(f"翻译: {source_name} -> {target_name}\n")
+    
+    if source_lang == target_lang:
+        print("警告: 源语言和目标语言相同，跳过翻译")
+        return
     
     print("开始翻译...")
     start_time = time.time()
@@ -318,15 +323,33 @@ def main():
     
     vtt_files = []
     source_lang = None
+    target_lang = "zho_Hans"
     
-    if len(sys.argv) >= 2 and sys.argv[1].startswith('--lang='):
-        source_lang = sys.argv[1].replace('--lang=', '')
-        args = sys.argv[2:]
-    elif len(sys.argv) >= 3 and sys.argv[1] == '--lang':
-        source_lang = sys.argv[2]
-        args = sys.argv[3:]
-    else:
-        args = sys.argv[1:]
+    args = sys.argv[1:]
+    
+    if '--to=' in str(args):
+        for arg in args:
+            if arg.startswith('--to='):
+                target_lang = LANG_CODE_MAP.get(arg.replace('--to=', ''), 'eng_Latn')
+                args.remove(arg)
+                break
+    elif '--to' in args:
+        idx = args.index('--to')
+        if idx + 1 < len(args):
+            target_lang = LANG_CODE_MAP.get(args[idx + 1], 'eng_Latn')
+            args = args[:idx] + args[idx + 2:]
+    
+    if '--lang=' in str(args):
+        for arg in args:
+            if arg.startswith('--lang='):
+                source_lang = arg.replace('--lang=', '')
+                args = [a for a in args if a != arg]
+                break
+    elif '--lang' in args:
+        idx = args.index('--lang')
+        if idx + 1 < len(args):
+            source_lang = args[idx + 1]
+            args = args[:idx] + args[idx + 2:]
     
     if not args:
         current_dir = Path(".")
@@ -334,10 +357,12 @@ def main():
         
         if not vtt_files:
             print("用法:")
-            print("  python translate.py 字幕.vtt/字幕.ass")
+            print("  python translate.py 字幕.ass")
             print("  python translate.py --lang=ja 字幕.ass")
+            print("  python translate.py --to=en 字幕.ass  # 中文->英文")
             print()
             print("支持语言: ja(日语), en(英语), zh(中文), ko(韩语), fr(法语), de(德语), es(西班牙语)")
+            print("目标语言: 默认中文，可指定 --to=en 翻译成英文")
             print()
             print(f"模型目录: {MODEL_DIR}")
             print()
@@ -355,10 +380,14 @@ def main():
             print(f"文件不存在: {vtt_path}")
             return
     
+    target_name = {'eng_Latn': '英语', 'zho_Hans': '中文', 'jpn_Jpan': '日语', 'kor_Hang': '韩语'}.get(target_lang, target_lang)
+    if target_lang != "zho_Hans":
+        print(f"目标语言: {target_name}")
+    
     for vtt_path in vtt_files:
         print()
         print("=" * 60)
-        translate_vtt(vtt_path, source_lang=source_lang)
+        translate_vtt(vtt_path, source_lang=source_lang, target_lang=target_lang)
 
 if __name__ == "__main__":
     main()
