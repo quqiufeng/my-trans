@@ -74,17 +74,17 @@ def download_paraformer():
     print("\n" + "=" * 60)
     print("下载 Paraformer 中文识别模型...")
     print("=" * 60)
-    
+
     try:
         from huggingface_hub import snapshot_download
-        
-        model_path = "E:/cuda/paraformer"
-        repo_id = "paraformer-zh"
-        
+
+        model_path = "E:/cuda/speech_paraformer-large"
+        repo_id = "paraformer/zhParaformer"
+
         print(f"下载模型: {repo_id}")
         print(f"保存路径: {model_path}")
         print()
-        
+
         # 下载模型
         snapshot_download(
             repo_id=repo_id,
@@ -92,14 +92,18 @@ def download_paraformer():
             local_dir_use_symlinks=False,
             resume_download=True
         )
-        
+
         print(f"\n✓ Paraformer 模型下载成功!")
         print(f"模型路径: {model_path}")
-        
+
         return True
-        
+
     except Exception as e:
         print(f"\n✗ 下载失败: {e}")
+        print()
+        print("请手动下载:")
+        print("  pip install huggingface_hub")
+        print("  huggingface-cli download paraformer/zhParaformer --local-dir E:\\cuda\\paraformer")
         return False
 
 def main():
