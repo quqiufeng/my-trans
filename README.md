@@ -29,7 +29,7 @@ yt-dlp -o "%(title)s.%(ext)s" -f b --restrict-filenames "https://www.youtube.com
 python transcribe.py video.mp4
 
 # 4. 翻译成中文双语字幕
-python translate_vtt.py video.ass
+python translate.py video.ass
 ```
 
 ---
@@ -185,7 +185,7 @@ python transcribe.py video.mp4
 ### 2. 翻译为双语字幕 / Translate to Bilingual Subtitles
 
 ```bash
-python translate_vtt.py video.ass
+python translate.py video.ass
 ```
 输出 / Output: `video.bilingual.vtt` (双语字幕 / Bilingual subtitles)
 
@@ -195,7 +195,7 @@ python translate_vtt.py video.ass
 
 ```bash
 # 自动检测语言并翻译为中文双语字幕
-python translate_vtt.py video.ass
+python translate.py video.ass
 ```
 
 支持的语言 / Supported Languages:
@@ -216,13 +216,13 @@ python translate_vtt.py video.ass
 
 ```bash
 # 日语视频
-python translate_vtt.py --lang=ja video.ass
+python translate.py --lang=ja video.ass
 
 # 韩语视频
-python translate_vtt.py --lang=ko video.ass
+python translate.py --lang=ko video.ass
 
 # 英语视频
-python translate_vtt.py --lang=en video.ass
+python translate.py --lang=en video.ass
 ```
 
 ### 批量处理 / Batch Processing
@@ -240,7 +240,7 @@ python transcribe.py video1.mp4 video2.mp4 video3.mp4
 |-------------|--------------|
 | `download_models.py` | 下载模型到本地 / Download models to local |
 | `transcribe.py` | 使用 faster-whisper 生成 ASS 字幕 / Generate ASS subtitles with faster-whisper |
-| `translate_vtt.py` | 使用 CTranslate2+NLLB 翻译为双语字幕 / Translate to bilingual subtitles with CTranslate2+NLLB |
+| `translate.py` | 使用 CTranslate2+NLLB 翻译为双语字幕 / Translate to bilingual subtitles with CTranslate2+NLLB |
 | `translate_nllb_official.py` | 官方 transformers 版本的翻译脚本 / Official transformers version translation script |
 
 ---

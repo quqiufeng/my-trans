@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-使用 CTranslate2 加载 NLLB 模型翻译 VTT 字幕
+使用 CTranslate2 加载 NLLB 模型翻译 ASS 字幕
 GPU 加速版本 - 批量优化
 """
 
@@ -334,8 +334,8 @@ def main():
         
         if not vtt_files:
             print("用法:")
-            print("  python translate_vtt.py 字幕.vtt/字幕.ass")
-            print("  python translate_vtt.py --lang=ja 字幕.ass")
+            print("  python translate.py 字幕.vtt/字幕.ass")
+            print("  python translate.py --lang=ja 字幕.ass")
             print()
             print("支持语言: ja(日语), en(英语), zh(中文), ko(韩语), fr(法语), de(德语), es(西班牙语)")
             print()
