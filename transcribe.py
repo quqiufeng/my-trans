@@ -158,7 +158,7 @@ def create_ass_dialogue(start, end, text, style="Default"):
     text_escaped = text.replace("\\", "\\\\").replace("{", "\\{").replace("}", "\\}")
     return f"Dialogue: 0,{start_fmt},{end_fmt},{style},,0,0,0,,{text_escaped}\n"
 
-def transcribe_video(video_path, model, batched_model, output_format="vtt"):
+def transcribe_video(video_path, model, batched_model, output_format="ass"):
     """转录音频并保存为字幕格式"""
     video_path = Path(video_path)
     
@@ -282,11 +282,11 @@ def transcribe_video(video_path, model, batched_model, output_format="vtt"):
 def main():
     video_exts = ['.mp4', '.mkv', '.avi', '.mov', '.flv', '.wmv', '.m4v']
     
-    output_format = "vtt"
+    output_format = "ass"
     
     args = sys.argv[1:]
     if '--vtt' in args:
-        output_format = "vtt"
+        output_format = "ass"
         args = [a for a in args if a != '--vtt']
     
     if not args:
@@ -301,6 +301,11 @@ def main():
             print("  python transcribe.py 视频1.mp4")
             print("  python transcribe.py 视频1.mp4 视频2.mp4")
             print("  python transcribe.py --vtt 视频.mp4  # 输出 VTT 格式")
+            print()
+            print("支持格式:", ", ".join(video_exts))
+            print()
+            print("输出格式: ASS (默认, 思源字体, 精准时间)")
+            print("         --vtt: 输出 VTT 格式")
             print()
             print("支持格式:", ", ".join(video_exts))
             print()
