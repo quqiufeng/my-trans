@@ -15,6 +15,15 @@ from faster_whisper import WhisperModel, BatchedInferencePipeline
 
 WHISPER_MODEL_PATH = "e:/cuda/faster-whisper-medium"
 
+def get_model_size():
+    """根据模型路径返回推荐配置"""
+    if "large" in WHISPER_MODEL_PATH.lower():
+        return "large"
+    elif "medium" in WHISPER_MODEL_PATH.lower():
+        return "medium"
+    else:
+        return "base"
+
 def print_memory_usage():
     """打印当前 GPU 内存使用情况"""
     import torch
@@ -124,7 +133,17 @@ def transcribe_video(video_path, model, batched_model):
     
     print(f"转录: {video_path.name} ({file_size_mb:.1f} MB)")
     
-    segments, info = batched_model.transcribe(str(video_path), batch_size=8)
+    model_size = get_model_size()
+    print(f"模型: {model_size}, 使用高精度模式...")
+    
+    segments, info = batched_model.transcribe(
+        str(video_path),
+        batch_size=8,
+        beam_size=5,
+        no_speech_threshold=0.6,
+        log_prob_threshold=-1.0,
+        patience=1.0
+    )
     
     vtt_content = "WEBVTT\n\n"
     
@@ -205,6 +224,10 @@ def main():
     batched_model = BatchedInferencePipeline(model=model)
     print("模型加载完成!\n")
     print_memory_usage()
+    
+    print("\n高精度转录模式: beam_size=5, patience=1.0")
+    if "medium" in WHISPER_MODEL_PATH.lower():
+        print("提示: 如需更高精度，可使用 large-v3 模型\n")
     
     print(f"\n处理 {len(video_files)} 个视频")
     print("-" * 60)
