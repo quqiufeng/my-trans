@@ -14,16 +14,18 @@ AI-powered video subtitle generation and translation tool. Supports automatic la
 
 ---
 
-## YouTube 字幕一键下载:
+## YouTube 视频字幕一键生成:
 
 ```bash
-# 安装 yt-dlp
+# 1. 安装 yt-dlp 并下载视频
 pip install yt-dlp
+yt-dlp -o video.mp4 "https://www.youtube.com/watch?v=xxxxx"
 
-# 下载视频并生成字幕
-yt-dlp --write-subs --sub-lang en "https://www.youtube.com/watch?v=xxxxx"
-python transcribe.py "xxxxx.en.ass"
-python translate_vtt.py "xxxxx.en.ass.bilingual.vtt"
+# 2. 用 AI 生成字幕（自动检测语言）
+python transcribe.py video.mp4
+
+# 3. 翻译成中文双语字幕
+python translate_vtt.py video.ass
 ```
 
 ---
