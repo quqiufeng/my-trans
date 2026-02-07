@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 使用 CTranslate2 加载 NLLB 模型翻译 ASS 字幕
-GPU 加速版本 - 批量优化
+生成中英双语字幕
 """
 
 import warnings
@@ -216,13 +216,56 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
     
     return header + events
 
+def create_en_zh_bilingual_ass(blocks, en_translations, zh_translations, original_content=""):
+    """创建中英双语 ASS（中文原文+英文翻译 或 英文原文+中文翻译）"""
+    if not original_content:
+        header = """[Script Info]
+Title: Bilingual Subtitles (EN+ZH)
+ScriptType: v4.00+
+WrapStyle: 0
+PlayResX: 1920
+PlayResY: 1080
+ScaledBorderAndShadow: yes
+
+[V4+ Styles]
+Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
+Style: Default,Source Han Sans CN,42,&H0000A5FF,&H000000FF,&H00000000,&H00000000,-1,0,0,0,100,100,0,0,1,2,2,2,10,10,10,1
+Style: Top,Source Han Sans CN,36,&H0000A5FF,&H000000FF,&H00000000,&H00000000,-1,0,0,0,100,100,0,0,1,2,2,9,10,10,10,1
+Style: Comment,Source Han Sans CN,30,&H0000A5FF,&H000000FF,&H00000000,&H00000000,-1,1,0,0,100,100,0,0,1,1,0,7,10,10,10,1
+
+[Events]
+Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
+"""
+    else:
+        lines = original_content.split('\n')
+        header = ""
+        events_started = False
+        for line in lines:
+            if line.startswith('[Events]'):
+                events_started = True
+                header += line + '\n'
+                header += "Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text\n"
+                break
+            if not events_started:
+                header += line + '\n'
+    
+    events = ""
+    for block, en_trans, zh_trans in zip(blocks, en_translations, zh_translations):
+        start = block['start']
+        end = block['end']
+        text = f"{zh_trans}\\N{en_trans}"
+        text = text.replace("{", "\\{").replace("}", "\\}")
+        events += f"Dialogue: 0,{start},{end},Default,,0,0,0,,{text}\n"
+    
+    return header + events
+
 def translate_vtt(vtt_path, output_path=None, batch_size=128, source_lang=None):
-    """翻译 VTT/ASS 文件为双语字幕"""
+    """翻译字幕为中英双语"""
     import torch
     vtt_path = Path(vtt_path)
     
     if output_path is None:
-        output_path = vtt_path.with_suffix('.bilingual.vtt')
+        output_path = vtt_path.parent / f"{vtt_path.stem.rsplit('_', 1)[0]}.ass"
     
     print(f"加载翻译模型: {MODEL_DIR}")
     translator, tokenizer = load_translator()
@@ -266,52 +309,64 @@ def translate_vtt(vtt_path, output_path=None, batch_size=128, source_lang=None):
                 print("检测到语言: 英语 (eng_Latn)")
     
     source_name = {'jpn_Jpan': '日语', 'eng_Latn': '英语', 'zho_Hans': '中文'}.get(source_lang, source_lang)
-    target_name = {'eng_Latn': '英语', 'zho_Hans': '中文', 'jpn_Jpan': '日语', 'kor_Hang': '韩语'}.get(target_lang, target_lang)
     
-    print(f"翻译: {source_name} -> {target_name}\n")
+    print(f"原文: {source_name}")
     
-    if source_lang == target_lang:
-        print("警告: 源语言和目标语言相同，跳过翻译")
-        return
-    
-    print("开始翻译...")
-    start_time = time.time()
-    
-    translations = translate_batch_fast(
-        translator, tokenizer, all_texts,
-        source_lang=source_lang,
-        target_lang=target_lang,
-        batch_size=batch_size
-    )
-    
-    elapsed = time.time() - start_time
-    if len(blocks) > 0:
-        print(f"\n翻译耗时: {elapsed:.2f}秒 ({elapsed/len(blocks)*1000:.0f}ms/条)")
-    else:
-        print(f"\n翻译耗时: {elapsed:.2f}秒")
-    
-    print(f"\n生成双语字幕...")
-    
-    if vtt_path.suffix.lower() == '.ass':
+    if source_lang == 'zho_Hans':
+        print("生成: 中文原文 + 英文翻译\n")
+        print("开始翻译中文 -> 英文...")
+        start_time = time.time()
+        en_translations = translate_batch_fast(
+            translator, tokenizer, all_texts,
+            source_lang='zho_Hans',
+            target_lang='eng_Latn',
+            batch_size=batch_size
+        )
+        elapsed = time.time() - start_time
+        print(f"翻译耗时: {elapsed:.2f}秒 ({elapsed/len(blocks)*1000:.0f}ms/条)\n")
+        
+        print("生成双语字幕...")
         with open(vtt_path, 'r', encoding='utf-8-sig') as f:
             original_content = f.read()
         
-        ass_content = create_bilingual_ass(blocks, translations, original_content)
+        zh_texts = all_texts
+        ass_content = create_en_zh_bilingual_ass(blocks, en_translations, zh_texts, original_content)
         
-        bilingual_path = vtt_path.parent / f"{vtt_path.stem.rsplit('_', 1)[0]}.ass"
-        with open(bilingual_path, 'w', encoding='utf-8-sig') as f:
+        with open(output_path, 'w', encoding='utf-8-sig') as f:
             f.write(ass_content)
         
-        print(f"\n完成! 双语字幕: {bilingual_path.name}")
+        print(f"\n完成! 双语字幕: {output_path.name}")
     else:
-        vtt_content = create_bilingual_vtt(blocks, translations)
+        print("生成: 原文 + 中文翻译\n")
+        print("开始翻译...")
+        start_time = time.time()
+        zh_translations = translate_batch_fast(
+            translator, tokenizer, all_texts,
+            source_lang=source_lang,
+            target_lang='zho_Hans',
+            batch_size=batch_size
+        )
+        elapsed = time.time() - start_time
+        print(f"\n翻译耗时: {elapsed:.2f}秒 ({elapsed/len(blocks)*1000:.0f}ms/条)")
         
-        with open(output_path, 'w', encoding='utf-8') as f:
-            f.write(vtt_content)
+        print(f"\n生成双语字幕...")
         
-        print(f"\n完成! 保存至: {output_path}")
+        if vtt_path.suffix.lower() == '.ass':
+            with open(vtt_path, 'r', encoding='utf-8-sig') as f:
+                original_content = f.read()
+            
+            ass_content = create_bilingual_ass(blocks, zh_translations, original_content)
+            
+            with open(output_path, 'w', encoding='utf-8-sig') as f:
+                f.write(ass_content)
+        else:
+            vtt_content = create_bilingual_vtt(blocks, zh_translations)
+            with open(output_path, 'w', encoding='utf-8') as f:
+                f.write(vtt_content)
+        
+        print(f"\n完成! 双语字幕: {output_path.name}")
     
-    print("释放 GPU 内存...")
+    print("\n释放 GPU 内存...")
     cleanup_translator(translator, tokenizer)
     print_memory_usage()
     
@@ -323,21 +378,8 @@ def main():
     
     vtt_files = []
     source_lang = None
-    target_lang = "zho_Hans"
     
     args = sys.argv[1:]
-    
-    if '--to=' in str(args):
-        for arg in args:
-            if arg.startswith('--to='):
-                target_lang = LANG_CODE_MAP.get(arg.replace('--to=', ''), 'eng_Latn')
-                args.remove(arg)
-                break
-    elif '--to' in args:
-        idx = args.index('--to')
-        if idx + 1 < len(args):
-            target_lang = LANG_CODE_MAP.get(args[idx + 1], 'eng_Latn')
-            args = args[:idx] + args[idx + 2:]
     
     if '--lang=' in str(args):
         for arg in args:
@@ -359,10 +401,12 @@ def main():
             print("用法:")
             print("  python translate.py 字幕.ass")
             print("  python translate.py --lang=ja 字幕.ass")
-            print("  python translate.py --to=en 字幕.ass  # 中文->英文")
             print()
             print("支持语言: ja(日语), en(英语), zh(中文), ko(韩语), fr(法语), de(德语), es(西班牙语)")
-            print("目标语言: 默认中文，可指定 --to=en 翻译成英文")
+            print()
+            print("说明: 自动生成中英双语字幕")
+            print("  - 中文视频: 中文原文 + 英文翻译")
+            print("  - 其他语言: 原文 + 中文翻译")
             print()
             print(f"模型目录: {MODEL_DIR}")
             print()
@@ -380,14 +424,10 @@ def main():
             print(f"文件不存在: {vtt_path}")
             return
     
-    target_name = {'eng_Latn': '英语', 'zho_Hans': '中文', 'jpn_Jpan': '日语', 'kor_Hang': '韩语'}.get(target_lang, target_lang)
-    if target_lang != "zho_Hans":
-        print(f"目标语言: {target_name}")
-    
     for vtt_path in vtt_files:
         print()
         print("=" * 60)
-        translate_vtt(vtt_path, source_lang=source_lang, target_lang=target_lang)
+        translate_vtt(vtt_path, source_lang=source_lang)
 
 if __name__ == "__main__":
     main()
