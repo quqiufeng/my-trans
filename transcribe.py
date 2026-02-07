@@ -13,7 +13,7 @@ import re
 from pathlib import Path
 from faster_whisper import WhisperModel, BatchedInferencePipeline
 
-WHISPER_MODEL_PATH = "e:/cuda/faster-whisper-medium"
+WHISPER_MODEL_PATH = "e:/cuda/faster-whisper-large-v3"
 
 def get_model_size():
     """根据模型路径返回推荐配置"""
