@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-使用 faster-whisper 本地模型生成英文字幕
-支持单个或批量视频文件
+使用 faster-whisper 本地模型生成 ASS 字幕
+支持单个或批量视频文件，默认输出 ASS 格式
 """
 
 import warnings
@@ -38,6 +38,35 @@ def cleanup_whisper(model):
     del model
     torch.cuda.empty_cache()
 
+def format_time_ass(seconds):
+    """将秒数转换为 ASS 时间格式 (H:MM:SS.cc)"""
+    hours = int(seconds // 3600)
+    minutes = int((seconds % 3600) // 60)
+    secs = int(seconds % 60)
+    centisecs = int((seconds % 1) * 100)
+    return f"{hours}:{minutes:02d}:{secs:02d}.{centisecs:02d}"
+
+def format_time_vtt(seconds):
+    """将秒数转换为 VTT 时间格式 (00:00:00.000)"""
+    hours = int(seconds // 3600)
+    minutes = int((seconds % 3600) // 60)
+    secs = int(seconds % 60)
+    millis = int((seconds % 1) * 1000)
+    return f"{hours:02d}:{minutes:02d}:{secs:02d}.{millis:03d}"
+
+def format_elapsed(seconds):
+    """将秒数转换为易读格式"""
+    hours = int(seconds // 3600)
+    minutes = int((seconds % 3600) // 60)
+    secs = int(seconds % 60)
+    
+    if hours > 0:
+        return f"{hours}小时{minutes}分{secs}秒"
+    elif minutes > 0:
+        return f"{minutes}分{secs}秒"
+    else:
+        return f"{secs}秒"
+
 def wrap_text(text, max_chars=50):
     """长文本自动换行"""
     if not text:
@@ -60,7 +89,7 @@ def wrap_text(text, max_chars=50):
     if current_line:
         lines.append(current_line)
     
-    return "\n".join(lines)
+    return "\\N".join(lines)
 
 def split_sentences(text):
     """按句子边界分割文本"""
@@ -102,31 +131,41 @@ def split_sentences(text):
     
     return result
 
-def format_time(seconds):
-    """将秒数转换为 VTT 时间格式 (00:00:00.000)"""
-    hours = int(seconds // 3600)
-    minutes = int((seconds % 3600) // 60)
-    secs = int(seconds % 60)
-    millis = int((seconds % 1) * 1000)
-    return f"{hours:02d}:{minutes:02d}:{secs:02d}.{millis:03d}"
+def create_ass_header():
+    """创建 ASS 字幕头部"""
+    return """[Script Info]
+Title: Auto Generated Subtitles
+ScriptType: v4.00+
+WrapStyle: 0
+PlayResX: 1920
+PlayResY: 1080
+ScaledBorderAndShadow: yes
 
-def format_elapsed(seconds):
-    """将秒数转换为易读格式"""
-    hours = int(seconds // 3600)
-    minutes = int((seconds % 3600) // 60)
-    secs = int(seconds % 60)
-    
-    if hours > 0:
-        return f"{hours}小时{minutes}分{secs}秒"
-    elif minutes > 0:
-        return f"{minutes}分{secs}秒"
-    else:
-        return f"{secs}秒"
+[V4+ Styles]
+Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
+Style: Default,Source Han Sans CN,36,&H00FFFFFF,&H000000FF,&H00000000,&H00000000,-1,0,0,0,100,100,0,0,1,2,1,2,10,10,10,1
+Style: Top,Source Han Sans CN,32,&H00FFFFFF,&H000000FF,&H00000000,&H00000000,-1,0,0,0,100,100,0,0,1,2,1,9,10,10,10,1
+Style: Comment,Source Han Sans CN,28,&H00AAAAAA,&H000000FF,&H00000000,&H00000000,-1,1,0,0,100,100,0,0,1,1,0,7,10,10,10,1
 
-def transcribe_video(video_path, model, batched_model):
-    """转录音频并保存为 VTT 格式"""
+[Events]
+Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
+"""
+
+def create_ass_dialogue(start, end, text, style="Default"):
+    """创建 ASS 对话行"""
+    start_fmt = format_time_ass(start)
+    end_fmt = format_time_ass(end)
+    text_escaped = text.replace("\\", "\\\\").replace("{", "\\{").replace("}", "\\}")
+    return f"Dialogue: 0,{start_fmt},{end_fmt},{style},,0,0,0,,{text_escaped}"
+
+def transcribe_video(video_path, model, batched_model, output_format="ass"):
+    """转录音频并保存为字幕格式"""
     video_path = Path(video_path)
-    output_path = video_path.with_suffix('.vtt')
+    
+    if output_format == "ass":
+        output_path = video_path.with_suffix('.ass')
+    else:
+        output_path = video_path.with_suffix('.vtt')
     
     file_size_mb = video_path.stat().st_size / (1024 * 1024)
     start_time = time.time()
@@ -145,47 +184,91 @@ def transcribe_video(video_path, model, batched_model):
         patience=1.0
     )
     
-    vtt_content = "WEBVTT\n\n"
-    
-    for segment in segments:
-        start_time_fmt = format_time(segment.start)
-        end_time_fmt = format_time(segment.end)
-        text = segment.text.strip()
+    if output_format == "ass":
+        ass_content = create_ass_header()
+        dialogue_count = 0
         
-        sentences = split_sentences(text)
-        
-        if len(sentences) == 1:
-            wrapped = wrap_text(text, 50)
-            vtt_content += f"{start_time_fmt} --> {end_time_fmt}\n{wrapped}\n\n"
-        else:
-            start_sec = segment.start
-            duration = segment.end - segment.start
-            avg_duration = duration / len(sentences)
+        for segment in segments:
+            start = segment.start
+            end = segment.end
+            text = segment.text.strip()
             
-            for i, sentence in enumerate(sentences):
-                sentence_start = start_time_fmt
-                sentence_end = format_time(start_sec + avg_duration)
+            sentences = split_sentences(text)
+            
+            if len(sentences) == 1:
+                wrapped = wrap_text(text, 45)
+                ass_content += create_ass_dialogue(start, end, wrapped)
+                dialogue_count += 1
+            else:
+                duration = end - start
+                avg_duration = duration / len(sentences)
+                current_start = start
                 
-                wrapped = wrap_text(sentence, 50)
-                vtt_content += f"{sentence_start} --> {sentence_end}\n{wrapped}\n\n"
+                for i, sentence in enumerate(sentences):
+                    wrapped = wrap_text(sentence, 45)
+                    current_end = start + (i + 1) * avg_duration
+                    ass_content += create_ass_dialogue(current_start, current_end, wrapped)
+                    dialogue_count += 1
+                    current_start = current_end
+        
+        with open(output_path, 'w', encoding='utf-8-sig') as f:
+            f.write(ass_content)
+        
+        elapsed = time.time() - start_time
+        elapsed_str = format_elapsed(elapsed)
+        print(f"  → {output_path.name} ({dialogue_count} 条, {elapsed_str})")
+        return output_path, elapsed, file_size_mb, dialogue_count
+    
+    else:
+        vtt_content = "WEBVTT\n\n"
+        dialogue_count = 0
+        
+        for segment in segments:
+            start_time_fmt = format_time_vtt(segment.start)
+            end_time_fmt = format_time_vtt(segment.end)
+            text = segment.text.strip()
+            
+            sentences = split_sentences(text)
+            
+            if len(sentences) == 1:
+                wrapped = wrap_text(text, 50)
+                vtt_content += f"{start_time_fmt} --> {end_time_fmt}\n{wrapped}\n\n"
+                dialogue_count += 1
+            else:
+                start_sec = segment.start
+                duration = segment.end - segment.start
+                avg_duration = duration / len(sentences)
                 
-                start_sec += avg_duration
-                start_time_fmt = sentence_end
-    
-    with open(output_path, 'w', encoding='utf-8') as f:
-        f.write(vtt_content)
-    
-    elapsed = time.time() - start_time
-    elapsed_str = format_elapsed(elapsed)
-    
-    print(f"  → {output_path.name} ({elapsed_str})")
-    return output_path, elapsed, file_size_mb
+                for i, sentence in enumerate(sentences):
+                    sentence_start = start_time_fmt
+                    sentence_end = format_time_vtt(start_sec + avg_duration)
+                    
+                    wrapped = wrap_text(sentence, 50)
+                    vtt_content += f"{sentence_start} --> {sentence_end}\n{wrapped}\n\n"
+                    
+                    dialogue_count += 1
+                    start_sec += avg_duration
+                    start_time_fmt = sentence_end
+        
+        with open(output_path, 'w', encoding='utf-8') as f:
+            f.write(vtt_content)
+        
+        elapsed = time.time() - start_time
+        elapsed_str = format_elapsed(elapsed)
+        print(f"  → {output_path.name} ({dialogue_count} 条, {elapsed_str})")
+        return output_path, elapsed, file_size_mb, dialogue_count
 
 def main():
     video_exts = ['.mp4', '.mkv', '.avi', '.mov', '.flv', '.wmv', '.m4v']
     
-    if len(sys.argv) < 2:
-        # 不带参数时，扫描当前目录下的所有视频文件
+    output_format = "ass"
+    
+    args = sys.argv[1:]
+    if '--vtt' in args:
+        output_format = "vtt"
+        args = [a for a in args if a != '--vtt']
+    
+    if not args:
         current_dir = Path(".")
         video_files = []
         for ext in video_exts:
@@ -196,18 +279,23 @@ def main():
             print("用法:")
             print("  python transcribe.py 视频1.mp4")
             print("  python transcribe.py 视频1.mp4 视频2.mp4")
+            print("  python transcribe.py --vtt 视频.mp4  # 输出 VTT 格式")
             print()
             print("支持格式:", ", ".join(video_exts))
+            print()
+            print("输出格式: ASS (默认, 思源字体)")
+            print("         --vtt: 输出 VTT 格式")
             print()
             print("当前目录没有找到视频文件")
             return
         
         video_files = [v.resolve() for v in video_files]
         print(f"扫描当前目录，找到 {len(video_files)} 个视频文件")
+        print(f"输出格式: {'ASS (思源字体)' if output_format == 'ass' else 'VTT'}")
         print()
     else:
         video_files = []
-        for arg in sys.argv[1:]:
+        for arg in args:
             path = Path(arg)
             if path.exists():
                 video_files.append(path.resolve())
@@ -226,8 +314,6 @@ def main():
     print_memory_usage()
     
     print("\n高精度转录模式: beam_size=5, patience=1.0")
-    if "medium" in WHISPER_MODEL_PATH.lower():
-        print("提示: 如需更高精度，可使用 large-v3 模型\n")
     
     print(f"\n处理 {len(video_files)} 个视频")
     print("-" * 60)
@@ -238,8 +324,8 @@ def main():
     
     for i, video in enumerate(video_files, 1):
         print(f"[{i}/{len(video_files)}]")
-        output_path, elapsed, file_size = transcribe_video(video, model, batched_model)
-        results.append((video.name, elapsed, file_size))
+        output_path, elapsed, file_size, count = transcribe_video(video, model, batched_model, output_format)
+        results.append((video.name, elapsed, file_size, count))
         total_elapsed += elapsed
         total_size += file_size
         print_memory_usage()
@@ -250,10 +336,10 @@ def main():
     print(f"总大小: {total_size:.1f} MB")
     print()
     print("各视频详情:")
-    print(f"{'文件名':<50} {'大小':<10} {'耗时'}")
-    print("-" * 70)
-    for name, elapsed, file_size in results:
-        print(f"{name:<50} {file_size:<10.1f}MB {format_elapsed(elapsed)}")
+    print(f"{'文件名':<50} {'大小':<10} {'耗时':<15} {'字幕数'}")
+    print("-" * 85)
+    for name, elapsed, file_size, count in results:
+        print(f"{name:<50} {file_size:<10.1f}MB {format_elapsed(elapsed):<15} {count}")
     
     print("\n释放 GPU 内存...")
     cleanup_whisper(model)
