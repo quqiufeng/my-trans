@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-使用阿里达摩院 SenseVoice 模型识别音频并生成 ASS 字幕
-专门优化中文识别效果
+使用阿里 SenseVoice 模型识别音频并生成 ASS 字幕
+轻量版 - 只依赖 torch 和 transformers
 """
 
 import warnings
@@ -49,74 +49,81 @@ def create_ass_dialogue(start, end, text, style="Default"):
 
 def sensevoice_to_ass(audio_path, output_path=None):
     """使用 SenseVoice 识别并生成 ASS 字幕"""
-    from modelscope.pipelines import pipeline
-    
-    print(f"加载 SenseVoice 模型...")
-    
-    # 默认本地模型路径（Windows）
-    model_path = "E:\\cuda\\SenseVoiceSmall"
-    
-    if os.path.exists(model_path):
-        model_id = model_path
-        print(f"使用本地模型: {model_path}")
-    else:
-        model_id = "iic/SenseVoiceSmall"
-        print("下载模型中...")
-    
-    recognition = pipeline(
-        model_id,
-        model_revision="master"
-    )
-    
-    print("模型加载完成!\n")
+    import torch
+    from transformers import AutoModelForSpeechSeq2Seq, AutoProcessor
     
     if output_path is None:
         output_path = str(Path(audio_path).with_suffix('.ass'))
     
+    # 模型路径
+    model_path = os.environ.get("SENSEVOICE_MODEL", "E:\\cuda\\SenseVoiceSmall")
+    
+    print(f"加载 SenseVoice 模型...")
+    print(f"模型路径: {model_path}\n")
+    
+    # 加载模型
+    device = "cuda" if torch.cuda.is_available() else "cpu"
+    torch_dtype = torch.float16 if torch.cuda.is_available() else torch.float32
+    
+    model = AutoModelForSpeechSeq2Seq.from_pretrained(
+        model_path,
+        torch_dtype=torch_dtype,
+        low_cpu_mem_usage=True,
+    )
+    model.to(device)
+    
+    processor = AutoProcessor.from_pretrained(model_path)
+    
+    print("模型加载完成!\n")
+    
     print(f"识别音频: {Path(audio_path).name}")
     print("这可能需要几分钟，请耐心等待...\n")
     
+    # 加载音频
+    from transformers import AutoProcessor
+    import librosa
+    
     start_time = time.time()
     
-    # 识别音频
-    result = recognition(
-        audio_path,
-        return_raw_text=False,
-        language="zh"
-    )
+    # 加载音频文件
+    audio_array, sampling_rate = librosa.load(audio_path, sr=16000)
+    
+    # 处理输入
+    input_features = processor(
+        audio_array,
+        sampling_rate=16000,
+        return_tensors="pt"
+    ).input_features
+    
+    input_features = input_features.to(device, dtype=torch_dtype)
+    
+    # 识别
+    with torch.no_grad():
+        predicted_ids = model.generate(
+            input_features,
+            max_new_tokens=1024,
+            language="zh",
+        )
+    
+    result = processor.batch_decode(predicted_ids, skip_special_tokens=True)
     
     elapsed = time.time() - start_time
     
     print(f"\n识别完成! 耗时: {elapsed:.1f}秒\n")
+    print(f"识别结果: {result[0][:100]}...\n")
     
-    # 解析结果
-    text = result.get("text", "")
-    print(f"识别结果: {text[:100]}...\n")
-    
-    # 创建 ASS 字幕
+    # 创建 ASS 字幕（整段字幕）
     ass_content = create_ass_header()
     dialogue_count = 0
     
-    # 解析时间戳
-    raw_result = result.get("raw_result", [])
-    if raw_result:
-        for item in raw_result:
-            if isinstance(item, dict) and "timestamp" in item:
-                for ts in item["timestamp"]:
-                    if len(ts) >= 3:
-                        start_ms = ts[0]
-                        end_ms = ts[1]
-                        sentence = ts[2]
-                        
-                        start_sec = start_ms / 1000.0
-                        end_sec = end_ms / 1000.0
-                        
-                        ass_content += create_ass_dialogue(start_sec, end_sec, sentence)
-                        dialogue_count += 1
-    
-    # 如果没有时间戳，创建一个整段的字幕
-    if dialogue_count == 0 and text:
-        ass_content += create_ass_dialogue(0, 60, text)
+    text = result[0] if result else ""
+    if text:
+        # 创建一个长字幕
+        import soundfile as sf
+        info = sf.info(audio_path)
+        duration = info.duration
+        
+        ass_content += create_ass_dialogue(0, duration, text)
         dialogue_count = 1
     
     with open(output_path, 'w', encoding='utf-8-sig') as f:
@@ -133,28 +140,21 @@ def main():
     parser = argparse.ArgumentParser(description='使用阿里 SenseVoice 识别音频并生成 ASS 字幕')
     parser.add_argument('audio', nargs='?', help='音频文件路径')
     parser.add_argument('-o', '--output', help='输出 ASS 文件路径')
-    parser.add_argument('-l', '--lang', default='zh', help='语言 (默认: zh)')
     
     args = parser.parse_args()
     
     if args.audio is None:
         print("用法:")
         print("  python sensevoice.py 音频.mp3")
+        print("  python sensevoice.py 音频.mp4")
         print("  python sensevoice.py 音频.mp3 -o 输出.ass")
         print()
-        print("支持格式: mp3, wav, m4a, flac, ogg, avi, mp4 等")
-        print()
         print("安装依赖:")
-        print("  pip install modelscope torch")
+        print("  pip install torch transformers librosa soundfile")
         print()
         print("下载模型:")
-        print("  首次运行会自动从 ModelScope 下载模型")
-        print()
-        print("或者设置环境变量使用本地模型:")
-        print("  set SENSEVOICE_MODEL=本地模型路径")
+        print("  huggingface-cli download iic/SenseVoiceSmall --local-dir E:\\cuda\\SenseVoiceSmall")
         return
-    
-    os.environ["SENSEVOICE_LANGUAGE"] = args.lang
     
     sensevoice_to_ass(args.audio, args.output)
 
