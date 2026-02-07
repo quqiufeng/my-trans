@@ -14,6 +14,7 @@ import time
 from pathlib import Path
 
 MODEL_NAME = "facebook/nllb-200-distilled-1.3B"
+MODEL_CACHE = "E:/cuda/nllb-200-1.3B"
 
 def cleanup_model(tokenizer, model):
     """释放 GPU 内存"""
@@ -33,8 +34,8 @@ def print_memory_usage():
 def load_translator():
     """加载翻译模型到 GPU"""
     import torch
-    tokenizer = transformers.AutoTokenizer.from_pretrained(MODEL_NAME, use_fast=False)
-    model = transformers.AutoModelForSeq2SeqLM.from_pretrained(MODEL_NAME)
+    tokenizer = transformers.AutoTokenizer.from_pretrained(MODEL_NAME, cache_dir=MODEL_CACHE, use_fast=False)
+    model = transformers.AutoModelForSeq2SeqLM.from_pretrained(MODEL_NAME, cache_dir=MODEL_CACHE)
     model = model.to("cuda")
     model.eval()
     return tokenizer, model
