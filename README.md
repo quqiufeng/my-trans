@@ -32,10 +32,6 @@ python transcribe.py video.mp4
 python translate_vtt.py video.ass
 ```
 
-# 3. 翻译成中文双语字幕
-python translate_vtt.py video.ass
-```
-
 ---
 
 ## AI 协作 / AI Collaboration
@@ -182,12 +178,14 @@ ctranslate2        4.7.1
 ```bash
 python transcribe.py video.mp4
 ```
-输出 / Output: `video.vtt` (英文字幕 / English subtitles)
+输出 / Output: `video.ass` (ASS 字幕 / Subtitles with Source Han Sans styling)
+
+> ⚠️ **重要提示**: `transcribe.py` 默认启用 `word_timestamps=True`，确保字幕与语音**精准同步**！这是生成字幕的关键参数，务必保持开启。
 
 ### 2. 翻译为双语字幕 / Translate to Bilingual Subtitles
 
 ```bash
-python translate_vtt.py video.vtt
+python translate_vtt.py video.ass
 ```
 输出 / Output: `video.bilingual.vtt` (双语字幕 / Bilingual subtitles)
 
@@ -197,7 +195,7 @@ python translate_vtt.py video.vtt
 
 ```bash
 # 自动检测语言并翻译为中文双语字幕
-python translate_vtt.py video.vtt
+python translate_vtt.py video.ass
 ```
 
 支持的语言 / Supported Languages:
@@ -218,13 +216,13 @@ python translate_vtt.py video.vtt
 
 ```bash
 # 日语视频
-python translate_vtt.py --lang=ja video.vtt
+python translate_vtt.py --lang=ja video.ass
 
 # 韩语视频
-python translate_vtt.py --lang=ko video.vtt
+python translate_vtt.py --lang=ko video.ass
 
 # 英语视频
-python translate_vtt.py --lang=en video.vtt
+python translate_vtt.py --lang=en video.ass
 ```
 
 ### 批量处理 / Batch Processing
