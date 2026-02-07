@@ -152,24 +152,38 @@ def main():
     video_exts = ['.mp4', '.mkv', '.avi', '.mov', '.flv', '.wmv', '.m4v']
     
     if len(sys.argv) < 2:
-        print("用法:")
-        print("  python transcribe.py 视频1.mp4")
-        print("  python transcribe.py 视频1.mp4 视频2.mp4")
+        # 不带参数时，扫描当前目录下的所有视频文件
+        current_dir = Path(".")
+        video_files = []
+        for ext in video_exts:
+            video_files.extend(current_dir.glob(f"*{ext}"))
+            video_files.extend(current_dir.glob(f"*{ext.upper()}"))
+        
+        if not video_files:
+            print("用法:")
+            print("  python transcribe.py 视频1.mp4")
+            print("  python transcribe.py 视频1.mp4 视频2.mp4")
+            print()
+            print("支持格式:", ", ".join(video_exts))
+            print()
+            print("当前目录没有找到视频文件")
+            return
+        
+        video_files = [v.resolve() for v in video_files]
+        print(f"扫描当前目录，找到 {len(video_files)} 个视频文件")
         print()
-        print("支持格式:", ", ".join(video_exts))
-        return
-    
-    video_files = []
-    for arg in sys.argv[1:]:
-        path = Path(arg)
-        if path.exists():
-            video_files.append(path.resolve())
-        else:
-            print(f"文件不存在: {arg}")
-    
-    if not video_files:
-        print("没有有效视频文件")
-        return
+    else:
+        video_files = []
+        for arg in sys.argv[1:]:
+            path = Path(arg)
+            if path.exists():
+                video_files.append(path.resolve())
+            else:
+                print(f"文件不存在: {arg}")
+        
+        if not video_files:
+            print("没有有效视频文件")
+            return
     
     print("=" * 60)
     print("加载 Whisper 模型...")

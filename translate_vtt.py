@@ -92,25 +92,12 @@ def create_bilingual_vtt(blocks, translations):
     
     return vtt_content
 
-def create_single_vtt(blocks, translations):
-    """创建单语 VTT"""
-    vtt_content = "WEBVTT\n\n"
-    
-    for i, (block, trans) in enumerate(zip(blocks, translations), 1):
-        vtt_content += f"{block['start']} --> {block['end']}\n"
-        vtt_content += f"{trans}\n\n"
-    
-    return vtt_content
-
-def translate_vtt(vtt_path, output_path=None, batch_size=128, mode="both"):
-    """翻译 VTT 文件"""
+def translate_vtt(vtt_path, output_path=None, batch_size=128):
+    """翻译 VTT 文件为双语字幕"""
     vtt_path = Path(vtt_path)
     
     if output_path is None:
-        if mode == "both":
-            output_path = vtt_path.with_suffix('.bilingual.vtt')
-        else:
-            output_path = vtt_path.with_suffix('.zh.vtt')
+        output_path = vtt_path.with_suffix('.bilingual.vtt')
     
     print(f"加载翻译模型: {MODEL_DIR}")
     translator, tokenizer = load_translator()
@@ -137,12 +124,9 @@ def translate_vtt(vtt_path, output_path=None, batch_size=128, mode="both"):
     elapsed = time.time() - start_time
     print(f"\n翻译耗时: {elapsed:.2f}秒 ({elapsed/len(blocks)*1000:.0f}ms/条)")
     
-    print(f"\n生成{'双语' if mode == 'both' else '中文'}字幕...")
+    print(f"\n生成双语字幕...")
     
-    if mode == "both":
-        vtt_content = create_bilingual_vtt(blocks, translations)
-    else:
-        vtt_content = create_single_vtt(blocks, translations)
+    vtt_content = create_bilingual_vtt(blocks, translations)
     
     with open(output_path, 'w', encoding='utf-8') as f:
         f.write(vtt_content)
@@ -152,23 +136,39 @@ def translate_vtt(vtt_path, output_path=None, batch_size=128, mode="both"):
 
 def main():
     import sys
+    from pathlib import Path
+    
+    vtt_files = []
     
     if len(sys.argv) < 2:
-        print("用法:")
-        print("  python translate_vtt.py 字幕.vtt")
-        print("  python translate_vtt.py 字幕.vtt --single")
-        print()
-        print(f"模型目录: {MODEL_DIR}")
-        print()
-        print("参数:")
-        print("  (默认)  生成双语字幕")
-        print("  --single  只生成中文译文")
-        return
+        # 不带参数时，扫描当前目录的 .vtt 文件
+        current_dir = Path(".")
+        vtt_files = list(current_dir.glob("*.vtt")) + list(current_dir.glob("*.VTT"))
+        
+        if not vtt_files:
+            print("用法:")
+            print("  python translate_vtt.py 字幕.vtt")
+            print()
+            print(f"模型目录: {MODEL_DIR}")
+            print()
+            print("当前目录没有找到 .vtt 字幕文件")
+            return
+        
+        vtt_files = [v.resolve() for v in vtt_files]
+        print(f"扫描当前目录，找到 {len(vtt_files)} 个字幕文件")
+    else:
+        vtt_path = sys.argv[1]
+        path = Path(vtt_path)
+        if path.exists():
+            vtt_files = [path.resolve()]
+        else:
+            print(f"文件不存在: {vtt_path}")
+            return
     
-    vtt_path = sys.argv[1]
-    mode = "both" if "--single" not in sys.argv else "single"
-    
-    translate_vtt(vtt_path, mode=mode)
+    for vtt_path in vtt_files:
+        print()
+        print("=" * 60)
+        translate_vtt(vtt_path)
 
 if __name__ == "__main__":
     main()
