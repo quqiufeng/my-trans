@@ -378,9 +378,10 @@ def main():
     
     vtt_files = []
     source_lang = None
-    
+    batch_size = 128
+
     args = sys.argv[1:]
-    
+
     if '--lang=' in str(args):
         for arg in args:
             if arg.startswith('--lang='):
@@ -392,6 +393,13 @@ def main():
         if idx + 1 < len(args):
             source_lang = args[idx + 1]
             args = args[:idx] + args[idx + 2:]
+
+    if '--batch=' in str(args):
+        for arg in args:
+            if arg.startswith('--batch='):
+                batch_size = int(arg.replace('--batch=', ''))
+                args = [a for a in args if a != arg]
+                break
     
     if not args:
         current_dir = Path(".")
@@ -427,7 +435,7 @@ def main():
     for vtt_path in vtt_files:
         print()
         print("=" * 60)
-        translate_vtt(vtt_path, source_lang=source_lang)
+        translate_vtt(vtt_path, source_lang=source_lang, batch_size=batch_size)
 
 if __name__ == "__main__":
     main()
