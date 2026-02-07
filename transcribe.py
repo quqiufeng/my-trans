@@ -158,7 +158,7 @@ def create_ass_dialogue(start, end, text, style="Default"):
     text_escaped = text.replace("\\", "\\\\").replace("{", "\\{").replace("}", "\\}")
     return f"Dialogue: 0,{start_fmt},{end_fmt},{style},,0,0,0,,{text_escaped}\n"
 
-def transcribe_video(video_path, model, batched_model, output_format="ass"):
+def transcribe_video(video_path, model, batched_model, output_format="vtt"):
     """转录音频并保存为字幕格式"""
     video_path = Path(video_path)
     
@@ -229,7 +229,7 @@ def transcribe_video(video_path, model, batched_model, output_format="ass"):
 def main():
     video_exts = ['.mp4', '.mkv', '.avi', '.mov', '.flv', '.wmv', '.m4v']
     
-    output_format = "ass"
+    output_format = "vtt"
     
     args = sys.argv[1:]
     if '--vtt' in args:
