@@ -131,6 +131,9 @@ huggingface-cli download Derur/nllb-200-3.3B-ct2-float16 --local-dir E:/cuda/nll
 ### 依赖安装 / Dependencies Installation
 
 ```bash
+# PyTorch (GPU) - Windows CUDA 11.8
+pip install torch==2.7.1+cu118 torchvision==0.22.1+cu118 torchaudio==2.7.1+cu118 --index-url https://download.pytorch.org/whl/cu118
+
 # 核心依赖 / Core dependencies
 pip install faster-whisper==1.2.1
 pip install ctranslate2==4.7.1
@@ -142,7 +145,26 @@ pip install tokenizers==0.14.0
 ### 完整安装命令 / Complete Installation Command
 
 ```bash
+# 1. 安装 PyTorch (GPU)
+pip install torch==2.7.1+cu118 torchvision==0.22.1+cu118 torchaudio==2.7.1+cu118 --index-url https://download.pytorch.org/whl/cu118
+
+# 2. 安装其他依赖
 pip install faster-whisper==1.2.1 ctranslate2==4.7.1 transformers==4.35.0 huggingface_hub==0.16.4 tokenizers==0.14.0
+```
+
+### 验证安装 / Verify Installation
+
+```powershell
+# 查看已安装的 CUDA 相关包
+pip list | findstr cuda
+```
+
+输出示例 / Output example:
+```
+torch              2.7.1+cu118
+torchaudio         2.7.1+cu118
+torchvision        0.22.1+cu118
+ctranslate2        4.7.1
 ```
 
 ---
