@@ -65,6 +65,18 @@ AI-powered video subtitle generation and translation tool. Generate English subt
 
 ## 模型下载 / Model Download
 
+### 使用下载脚本 (推荐 / Recommended)
+
+```bash
+# 运行下载脚本 / Run download script
+python download_models.py
+
+# 选项 / Options:
+#   1. 下载 faster-whisper 模型
+#   2. 下载 NLLB 翻译模型
+#   3. 下载全部模型
+```
+
 ### 1. Whisper 模型 / Whisper Model
 
 ```bash
@@ -75,8 +87,11 @@ AI-powered video subtitle generation and translation tool. Generate English subt
 ### 2. NLLB 翻译模型 / NLLB Translation Model
 
 ```bash
-# 下载预转换的 CTranslate2 模型 (推荐) / Download pre-converted CTranslate2 model (recommended)
-huggingface-cli download Derur/nllb-200-3.3B-ct2-float16 --local-dir E:/cuda/nllb-200-3.3B-ct2-float16
+# 方法1: 使用下载脚本 / Method 1: Use download script
+python download_models.py
+
+# 方法2: 使用 huggingface-cli / Method 2: Use huggingface-cli
+huggingface-cli download Derur/nllb-200-3.3B-ct2-float16 --local-dir E:/cuda/nllb-200-3.3B-ct2-float16 --local-dir-use-symlinks false
 ```
 
 **模型介绍 / Model Introduction:**
@@ -161,6 +176,7 @@ python transcribe.py video1.mp4 video2.mp4 video3.mp4
 
 | 脚本 / Script | 功能 / Function |
 |-------------|--------------|
+| `download_models.py` | 下载模型到本地 / Download models to local |
 | `transcribe.py` | 使用 faster-whisper 生成英文字幕 / Generate English subtitles with faster-whisper |
 | `translate_vtt.py` | 使用 CTranslate2+NLLB 翻译为双语字幕 / Translate to bilingual subtitles with CTranslate2+NLLB |
 | `translate_nllb_official.py` | 官方 transformers 版本的翻译脚本 / Official transformers version translation script |
