@@ -20,7 +20,9 @@ AI-powered video subtitle generation and translation tool. Supports automatic la
 # 1. 安装 yt-dlp
 pip install yt-dlp
 
-# 2. 下载视频（最佳画质，自动合并）
+# 2. 设置代理并下载视频（最佳画质，自动合并）
+export http_proxy="http://192.168.124.3:7897"
+export https_proxy="http://192.168.124.3:7897"
 yt-dlp -o "%(title)s.%(ext)s" -f b --restrict-filenames "https://www.youtube.com/watch?v=xxxxx"
 
 # 3. 用 AI 生成字幕（自动检测语言）
