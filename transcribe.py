@@ -193,9 +193,12 @@ def transcribe_video(video_path, model, batched_model, output_format="ass"):
             end = segment.end
             text = segment.text.strip()
             
-            wrapped = wrap_text(text, 45)
-            ass_content += create_ass_dialogue(start, end, wrapped)
-            dialogue_count += 1
+            sentences = split_sentences(text)
+            
+            for sentence in sentences:
+                wrapped = wrap_text(sentence, 45)
+                ass_content += create_ass_dialogue(start, end, wrapped)
+                dialogue_count += 1
         
         with open(output_path, 'w', encoding='utf-8-sig') as f:
             f.write(ass_content)
@@ -214,9 +217,12 @@ def transcribe_video(video_path, model, batched_model, output_format="ass"):
             end_time_fmt = format_time_vtt(segment.end)
             text = segment.text.strip()
             
-            wrapped = wrap_text(text, 50)
-            vtt_content += f"{start_time_fmt} --> {end_time_fmt}\n{wrapped}\n\n"
-            dialogue_count += 1
+            sentences = split_sentences(text)
+            
+            for sentence in sentences:
+                wrapped = wrap_text(sentence, 50)
+                vtt_content += f"{start_time_fmt} --> {end_time_fmt}\n{wrapped}\n\n"
+                dialogue_count += 1
         
         with open(output_path, 'w', encoding='utf-8') as f:
             f.write(vtt_content)
