@@ -41,6 +41,33 @@ res/
 
 ---
 
+## 如何使用
+
+### 1. 从服务器下载脚本
+
+```bash
+cd E:\downloads\res
+scp quqiufeng@192.168.124.10:/home/quqiufeng/my-trans/*.py .
+```
+
+### 2. 语音识别（生成英文字幕）
+
+```bash
+python transcribe.py Introduction_OCaml_Programming_Chapter_1_Video_1.mp4
+```
+
+### 3. 翻译字幕
+
+```bash
+# 方式一：使用 1.3B 模型（稳定）
+python translate_nllb_official.py Introduction_OCaml_Programming_Chapter_1_Video_1_en.ass
+
+# 方式二：使用 3.3B 模型（速度快）
+python translate.py Introduction_OCaml_Programming_Chapter_1_Video_1_en.ass
+```
+
+---
+
 ## AI 协作 / AI Collaboration
 
 | 角色 / Role | 工具 / Tool | 说明 / Description |
