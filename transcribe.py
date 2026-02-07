@@ -4,6 +4,9 @@
 支持单个或批量视频文件
 """
 
+import warnings
+warnings.filterwarnings('ignore')
+
 import time
 import sys
 import re

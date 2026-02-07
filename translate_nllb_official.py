@@ -4,6 +4,9 @@
 无需 CTranslate2
 """
 
+import warnings
+warnings.filterwarnings('ignore')
+
 import transformers
 import re
 import time
