@@ -130,6 +130,38 @@ def parse_vtt(vtt_path):
     
     return blocks
 
+def parse_ass(ass_path):
+    """解析 ASS 文件"""
+    with open(ass_path, 'r', encoding='utf-8-sig') as f:
+        content = f.read()
+    
+    blocks = []
+    in_events = False
+    
+    for line in content.split('\n'):
+        if line.startswith('[Events]'):
+            in_events = True
+            continue
+        if line.startswith('['):
+            in_events = False
+            continue
+        if in_events and line.startswith('Dialogue:'):
+            parts = line.split(',', 9)
+            if len(parts) >= 10:
+                start = parts[1]
+                end = parts[2]
+                text = parts[9].replace('\\N', ' ').replace('\\n', ' ')
+                text = re.sub(r'\{[^}]*\}', '', text)
+                text = text.strip()
+                if text:
+                    blocks.append({
+                        'start': start,
+                        'end': end,
+                        'text': text
+                    })
+    
+    return blocks
+
 def create_bilingual_vtt(blocks, translations):
     """创建双语 VTT"""
     vtt_content = "WEBVTT\n\n"
@@ -142,7 +174,7 @@ def create_bilingual_vtt(blocks, translations):
     return vtt_content
 
 def translate_vtt(vtt_path, output_path=None, batch_size=128, source_lang=None):
-    """翻译 VTT 文件为双语字幕"""
+    """翻译 VTT/ASS 文件为双语字幕"""
     import torch
     vtt_path = Path(vtt_path)
     
@@ -155,7 +187,16 @@ def translate_vtt(vtt_path, output_path=None, batch_size=128, source_lang=None):
     print_memory_usage()
     
     print(f"\n解析字幕: {vtt_path.name}")
-    blocks = parse_vtt(vtt_path)
+    
+    if vtt_path.suffix.lower() == '.ass':
+        blocks = parse_ass(vtt_path)
+    else:
+        blocks = parse_vtt(vtt_path)
+    
+    if len(blocks) == 0:
+        print("错误: 无法解析字幕文件！")
+        return
+    
     print(f"共 {len(blocks)} 条字幕\n")
     
     all_texts = [b['text'] for b in blocks]
@@ -196,7 +237,10 @@ def translate_vtt(vtt_path, output_path=None, batch_size=128, source_lang=None):
     )
     
     elapsed = time.time() - start_time
-    print(f"\n翻译耗时: {elapsed:.2f}秒 ({elapsed/len(blocks)*1000:.0f}ms/条)")
+    if len(blocks) > 0:
+        print(f"\n翻译耗时: {elapsed:.2f}秒 ({elapsed/len(blocks)*1000:.0f}ms/条)")
+    else:
+        print(f"\n翻译耗时: {elapsed:.2f}秒")
     
     print(f"\n生成双语字幕...")
     
