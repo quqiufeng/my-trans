@@ -203,7 +203,6 @@ def main():
     print("加载 Whisper 模型...")
     model = WhisperModel(WHISPER_MODEL_PATH, device="cuda", compute_type="float16")
     batched_model = BatchedInferencePipeline(model=model)
-    model.eval()
     print("模型加载完成!\n")
     print_memory_usage()
     
