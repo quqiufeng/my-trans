@@ -149,7 +149,7 @@ def create_ass_dialogue(start, end, text, style="Default"):
     text_escaped = text.replace("{", "\\{").replace("}", "\\}")
     return f"Dialogue: 0,{start_fmt},{end_fmt},{style},,0,0,0,,{text_escaped}\n"
 
-def transcribe_video(video_path, model, batched_model):
+def transcribe_video(video_path, model, batched_model, language=None):
     """转录音频并保存为 ASS 格式"""
     video_path = Path(video_path)
     
@@ -161,14 +161,21 @@ def transcribe_video(video_path, model, batched_model):
     model_size = get_model_size()
     print(f"模型: {model_size}, 使用高精度模式...")
     
+    transcribe_kwargs = {
+        'batch_size': 8,
+        'beam_size': 5,
+        'no_speech_threshold': 0.6,
+        'log_prob_threshold': -1.0,
+        'patience': 1.0,
+        'word_timestamps': True
+    }
+    
+    if language:
+        transcribe_kwargs['language'] = language
+    
     segments, info = batched_model.transcribe(
         str(video_path),
-        batch_size=8,
-        beam_size=5,
-        no_speech_threshold=0.6,
-        log_prob_threshold=-1.0,
-        patience=1.0,
-        word_timestamps=True
+        **transcribe_kwargs
     )
     
     detected_lang = info.language if hasattr(info, 'language') else 'unknown'
@@ -248,7 +255,23 @@ def main():
         print()
     else:
         video_files = []
-        for arg in sys.argv[1:]:
+        language = None
+        
+        args = sys.argv[1:]
+        
+        if '--lang=' in str(args):
+            for arg in args:
+                if arg.startswith('--lang='):
+                    language = arg.replace('--lang=', '')
+                    args = [a for a in args if a != arg]
+                    break
+        elif '--lang' in args:
+            idx = args.index('--lang')
+            if idx + 1 < len(args):
+                language = args[idx + 1]
+                args = args[:idx] + args[idx + 2:]
+        
+        for arg in args:
             path = Path(arg)
             if path.exists():
                 video_files.append(path.resolve())
@@ -277,7 +300,7 @@ def main():
     
     for i, video in enumerate(video_files, 1):
         print(f"[{i}/{len(video_files)}]")
-        output_path, elapsed, file_size, count = transcribe_video(video, model, batched_model)
+        output_path, elapsed, file_size, count = transcribe_video(video, model, batched_model, language)
         results.append((video.name, elapsed, file_size, count))
         total_elapsed += elapsed
         total_size += file_size
