@@ -35,6 +35,21 @@ LANG_CODE_MAP = {
 
 SUPPORTED_LANGUAGES = list(LANG_CODE_MAP.keys())
 
+def print_memory_usage():
+    """打印当前 GPU 内存使用情况"""
+    import torch
+    if torch.cuda.is_available():
+        allocated = torch.cuda.memory_allocated() / (1024**3)
+        reserved = torch.cuda.memory_reserved() / (1024**3)
+        print(f"  GPU Memory: 已分配 {allocated:.2f}GB, 保留 {reserved:.2f}GB")
+
+def cleanup_translator(translator, tokenizer):
+    """释放 GPU 内存"""
+    import torch
+    del translator
+    del tokenizer
+    torch.cuda.empty_cache()
+
 def detect_language_simple(texts):
     """简单的语言检测"""
     try:
