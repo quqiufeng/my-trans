@@ -152,7 +152,7 @@ def create_ass_dialogue(start, end, text, style="Default"):
 def transcribe_video(video_path, model, batched_model):
     """转录音频并保存为 ASS 格式"""
     video_path = Path(video_path)
-    output_path = video_path.with_suffix('.ass')
+    output_path = video_path.parent / f"{video_path.stem}_en.ass"
     
     file_size_mb = video_path.stat().st_size / (1024 * 1024)
     start_time = time.time()

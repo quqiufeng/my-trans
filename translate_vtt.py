@@ -173,6 +173,49 @@ def create_bilingual_vtt(blocks, translations):
     
     return vtt_content
 
+def create_bilingual_ass(blocks, translations, original_content=""):
+    """创建双语 ASS"""
+    if not original_content:
+        header = """[Script Info]
+Title: Bilingual Subtitles
+ScriptType: v4.00+
+WrapStyle: 0
+PlayResX: 1920
+PlayResY: 1080
+ScaledBorderAndShadow: yes
+
+[V4+ Styles]
+Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
+Style: Default,Source Han Sans CN,42,&H0000A5FF,&H000000FF,&H00000000,&H00000000,-1,0,0,0,100,100,0,0,1,2,2,2,10,10,10,1
+Style: Top,Source Han Sans CN,36,&H0000A5FF,&H000000FF,&H00000000,&H00000000,-1,0,0,0,100,100,0,0,1,2,2,9,10,10,10,1
+Style: Comment,Source Han Sans CN,30,&H0000A5FF,&H000000FF,&H00000000,&H00000000,-1,1,0,0,100,100,0,0,1,1,0,7,10,10,10,1
+
+[Events]
+Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
+"""
+    else:
+        lines = original_content.split('\n')
+        header = ""
+        events_started = False
+        for line in lines:
+            if line.startswith('[Events]'):
+                events_started = True
+                header += line + '\n'
+                header += "Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text\n"
+                break
+            if not events_started:
+                header += line + '\n'
+    
+    events = ""
+    for block, trans in zip(blocks, translations):
+        start = block['start']
+        end = block['end']
+        text = f"{trans}\\N{block['text']}"
+        text = text.replace("{", "\\{").replace("}", "\\}")
+        events += f"Dialogue: 0,{start},{end},Default,,0,0,0,,{text}\n"
+    
+    return header + events
+
 def translate_vtt(vtt_path, output_path=None, batch_size=128, source_lang=None):
     """翻译 VTT/ASS 文件为双语字幕"""
     import torch
@@ -244,12 +287,23 @@ def translate_vtt(vtt_path, output_path=None, batch_size=128, source_lang=None):
     
     print(f"\n生成双语字幕...")
     
-    vtt_content = create_bilingual_vtt(blocks, translations)
-    
-    with open(output_path, 'w', encoding='utf-8') as f:
-        f.write(vtt_content)
-    
-    print(f"\n完成! 保存至: {output_path}")
+    if vtt_path.suffix.lower() == '.ass':
+        with open(vtt_path, 'r', encoding='utf-8-sig') as f:
+            original_content = f.read()
+        
+        ass_content = create_bilingual_ass(blocks, translations, original_content)
+        
+        with open(vtt_path, 'w', encoding='utf-8-sig') as f:
+            f.write(ass_content)
+        
+        print(f"\n完成! 已更新字幕: {vtt_path.name}")
+    else:
+        vtt_content = create_bilingual_vtt(blocks, translations)
+        
+        with open(output_path, 'w', encoding='utf-8') as f:
+            f.write(vtt_content)
+        
+        print(f"\n完成! 保存至: {output_path}")
     
     print("释放 GPU 内存...")
     cleanup_translator(translator, tokenizer)
@@ -275,18 +329,18 @@ def main():
     
     if not args:
         current_dir = Path(".")
-        vtt_files = list(current_dir.glob("*.vtt")) + list(current_dir.glob("*.VTT"))
+        vtt_files = list(current_dir.glob("*.vtt")) + list(current_dir.glob("*.VTT")) + list(current_dir.glob("*.ass")) + list(current_dir.glob("*.ASS"))
         
         if not vtt_files:
             print("用法:")
-            print("  python translate_vtt.py 字幕.vtt")
-            print("  python translate_vtt.py --lang=ja 字幕.vtt")
+            print("  python translate_vtt.py 字幕.vtt/字幕.ass")
+            print("  python translate_vtt.py --lang=ja 字幕.ass")
             print()
             print("支持语言: ja(日语), en(英语), zh(中文), ko(韩语), fr(法语), de(德语), es(西班牙语)")
             print()
             print(f"模型目录: {MODEL_DIR}")
             print()
-            print("当前目录没有找到 .vtt 字幕文件")
+            print("当前目录没有找到字幕文件")
             return
         
         vtt_files = [v.resolve() for v in vtt_files]

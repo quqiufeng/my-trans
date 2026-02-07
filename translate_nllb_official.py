@@ -91,6 +91,38 @@ def parse_vtt(vtt_path):
     
     return blocks
 
+def parse_ass(ass_path):
+    """解析 ASS 文件"""
+    with open(ass_path, 'r', encoding='utf-8-sig') as f:
+        content = f.read()
+    
+    blocks = []
+    in_events = False
+    
+    for line in content.split('\n'):
+        if line.startswith('[Events]'):
+            in_events = True
+            continue
+        if line.startswith('['):
+            in_events = False
+            continue
+        if in_events and line.startswith('Dialogue:'):
+            parts = line.split(',', 9)
+            if len(parts) >= 10:
+                start = parts[1]
+                end = parts[2]
+                text = parts[9].replace('\\N', ' ').replace('\\n', ' ')
+                text = re.sub(r'\{[^}]*\}', '', text)
+                text = text.strip()
+                if text:
+                    blocks.append({
+                        'start': start,
+                        'end': end,
+                        'text': text
+                    })
+    
+    return blocks
+
 def create_bilingual_vtt(blocks, translations):
     """创建双语 VTT"""
     vtt_content = "WEBVTT\n\n"
@@ -102,12 +134,59 @@ def create_bilingual_vtt(blocks, translations):
     
     return vtt_content
 
+def create_bilingual_ass(blocks, translations, original_content=""):
+    """创建双语 ASS"""
+    if not original_content:
+        header = """[Script Info]
+Title: Bilingual Subtitles
+ScriptType: v4.00+
+WrapStyle: 0
+PlayResX: 1920
+PlayResY: 1080
+ScaledBorderAndShadow: yes
+
+[V4+ Styles]
+Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
+Style: Default,Source Han Sans CN,42,&H0000A5FF,&H000000FF,&H00000000,&H00000000,-1,0,0,0,100,100,0,0,1,2,2,2,10,10,10,1
+Style: Top,Source Han Sans CN,36,&H0000A5FF,&H000000FF,&H00000000,&H00000000,-1,0,0,0,100,100,0,0,1,2,2,9,10,10,10,1
+Style: Comment,Source Han Sans CN,30,&H0000A5FF,&H000000FF,&H00000000,&H00000000,-1,1,0,0,100,100,0,0,1,1,0,7,10,10,10,1
+
+[Events]
+Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
+"""
+    else:
+        lines = original_content.split('\n')
+        header = ""
+        events_started = False
+        for line in lines:
+            if line.startswith('[Events]'):
+                events_started = True
+                header += line + '\n'
+                header += "Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text\n"
+                break
+            if not events_started:
+                header += line + '\n'
+    
+    events = ""
+    for block, trans in zip(blocks, translations):
+        start = block['start']
+        end = block['end']
+        text = f"{trans}\\N{block['text']}"
+        text = text.replace("{", "\\{").replace("}", "\\}")
+        events += f"Dialogue: 0,{start},{end},Default,,0,0,0,,{text}\n"
+    
+    return header + events
+
 def translate_vtt(vtt_path, output_path=None, batch_size=8):
-    """翻译 VTT 文件为双语字幕"""
+    """翻译 VTT/ASS 文件为双语字幕"""
+    import torch
     vtt_path = Path(vtt_path)
     
     if output_path is None:
-        output_path = vtt_path.with_suffix('.bilingual.vtt')
+        if vtt_path.suffix.lower() == '.ass':
+            output_path = vtt_path
+        else:
+            output_path = vtt_path.with_suffix('.bilingual.vtt')
     
     print(f"加载翻译模型: {MODEL_NAME}")
     tokenizer, model = load_translator()
@@ -140,16 +219,30 @@ def translate_vtt(vtt_path, output_path=None, batch_size=8):
     print(f"  进度: {len(blocks)}/{len(blocks)} (100%)")
     
     elapsed = time.time() - start_time
-    print(f"\n翻译耗时: {elapsed:.2f}秒 ({elapsed/len(blocks)*1000:.0f}ms/条)")
+    if len(blocks) > 0:
+        print(f"\n翻译耗时: {elapsed:.2f}秒 ({elapsed/len(blocks)*1000:.0f}ms/条)")
+    else:
+        print(f"\n翻译耗时: {elapsed:.2f}秒")
     
     print(f"\n生成双语字幕...")
     
-    vtt_content = create_bilingual_vtt(blocks, translations)
-    
-    with open(output_path, 'w', encoding='utf-8') as f:
-        f.write(vtt_content)
-    
-    print(f"\n完成! 保存至: {output_path}")
+    if vtt_path.suffix.lower() == '.ass':
+        with open(vtt_path, 'r', encoding='utf-8-sig') as f:
+            original_content = f.read()
+        
+        ass_content = create_bilingual_ass(blocks, translations, original_content)
+        
+        with open(vtt_path, 'w', encoding='utf-8-sig') as f:
+            f.write(ass_content)
+        
+        print(f"\n完成! 已更新字幕: {vtt_path.name}")
+    else:
+        vtt_content = create_bilingual_vtt(blocks, translations)
+        
+        with open(output_path, 'w', encoding='utf-8') as f:
+            f.write(vtt_content)
+        
+        print(f"\n完成! 保存至: {output_path}")
     
     print("释放 GPU 内存...")
     cleanup_model(tokenizer, model)
