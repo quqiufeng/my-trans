@@ -30,6 +30,17 @@ python translate.py video.ass
 
 ---
 
+## 示例文件 / Example Files
+
+```
+res/
+├── Introduction_OCaml_Programming_Chapter_1_Video_1.mp4      # 原始视频
+├── Introduction_OCaml_Programming_Chapter_1_Video_1.ass         # Whisper 识别的英文字幕
+└── Introduction_OCaml_Programming_Chapter_1_Video_1_en.ass      # NLLB 翻译的中英双语字幕
+```
+
+---
+
 ## AI 协作 / AI Collaboration
 
 | 角色 / Role | 工具 / Tool | 说明 / Description |
