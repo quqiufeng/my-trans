@@ -1,48 +1,30 @@
 # my-trans
 
+> 🤖 **AI 时代已经来临，解放双手！**
+> 
+> 本项目由 [OpenCode](https://opencode.ai) 基于 **MiniMax-M2.1** 模型生成，全程使用 AI 协助开发。
+> 
+> 这是一个全 AI 驱动的项目，展示了 AI 在实际应用中的强大能力。
+
+AI 时代已经来临，解放双手！
+
 基于 AI 的视频字幕生成与翻译工具，支持生成英文字幕并翻译为中文双语字幕。
 
 AI-powered video subtitle generation and translation tool. Generate English subtitles and translate them into Chinese bilingual subtitles.
 
 ---
 
-## 参考项目 / Reference Projects
+## AI 协作 / AI Collaboration
 
-### [faster-whisper](https://github.com/SYSTRAN/faster-whisper)
+| 角色 / Role | 工具 / Tool | 说明 / Description |
+|-----------|-------------|------------------|
+| 需求与开发 / Requirement & Development | [OpenCode](https://opencode.ai) | AI 编程助手，基于 MiniMax-M2.1 模型 |
+| 语音识别 / Speech Recognition | [faster-whisper](https://github.com/SYSTRAN/faster-whisper) | OpenAI Whisper 的 CTranslate2 优化版 |
+| 翻译引擎 / Translation Engine | [CTranslate2](https://github.com/OpenNMT/CTranslate2) | 高性能 Transformer 推理引擎 |
+| 多语言翻译 / Multilingual Translation | [NLLB-200](https://huggingface.co/facebook/nllb-200-distilled-3.3B) | Meta AI 200+ 语言翻译模型 |
 
-> **CN:** faster-whisper 是 OpenAI Whisper 模型的高性能实现，基于 CTranslate2 优化。
-> 
-> **特点：** 比原始 Whisper 快 4 倍，内存占用减少 50%，支持 GPU 加速。
->
-> ---
->
-> **EN:** faster-whisper is a high-performance implementation of OpenAI Whisper model, optimized with CTranslate2.
-> 
-> **Features:** 4x faster than original Whisper, 50% less memory usage, GPU acceleration support.
-
-### [CTranslate2](https://github.com/OpenNMT/CTranslate2)
-
-> **CN:** CTranslate2 是 OpenNMT 开发的高性能 Transformer 模型推理引擎。
-> 
-> **特点：** 支持多种模型架构，INT8/FP16 量化，GPU/CPU 优化，批量推理加速。
->
-> ---
->
-> **EN:** CTranslate2 is a high-performance Transformer model inference engine developed by OpenNMT.
-> 
-> **Features:** Supports multiple model architectures, INT8/FP16 quantization, GPU/CPU optimization, batch inference acceleration.
-
-### [NLLB-200](https://huggingface.co/facebook/nllb-200-distilled-3.3B)
-
-> **CN:** No Language Left Behind (NLLB) 是 Meta AI 开发的多语言翻译模型。
-> 
-> **特点：** 支持 200 种语言，蒸馏版模型更小更快，开源免费使用。
->
-> ---
->
-> **EN:** No Language Left Behind (NLLB) is a multilingual translation model developed by Meta AI.
-> 
-> **Features:** Supports 200 languages, distilled models are smaller and faster, open source and free to use.
+> 💡 **从想法到实现，全程由 AI 协助完成**  
+> **From idea to implementation, all assisted by AI**
 
 ---
 
@@ -52,14 +34,14 @@ AI-powered video subtitle generation and translation tool. Generate English subt
 
 | 功能 / Function | 模型 / Model | 说明 / Description |
 |----------------|-------------|-------------------|
-| 语音识别 / Speech Recognition | [faster-whisper-medium](https://github.com/SYSTRAN/faster-whisper) | OpenAI Whisper 的 CTranslate2 优化版 / CTranslate2-optimized OpenAI Whisper |
-| 翻译 / Translation | [NLLB-200-3.3B](https://huggingface.co/facebook/nllb-200-distilled-3.3B) | Meta 多语言翻译模型，支持 200+ 语言 / Meta multilingual translation model, 200+ languages |
+| 语音识别 / Speech Recognition | [faster-whisper](https://github.com/SYSTRAN/faster-whisper) | OpenAI Whisper 的 CTranslate2 优化版 |
+| 翻译 / Translation | [NLLB-200-3.3B](https://huggingface.co/facebook/nllb-200-distilled-3.3B) | Meta 多语言翻译模型，支持 200+ 语言 |
 
 ### 技术栈 / Tech Stack
 
-- **faster-whisper**: 基于 CTranslate2 的 Whisper 推理加速 / Whisper inference acceleration with CTranslate2
-- **ctranslate2**: 高性能 Transformer 推理引擎 / High-performance Transformer inference engine
-- **transformers**: Hugging Face 模型库 / Hugging Face model library
+- **[faster-whisper](https://github.com/SYSTRAN/faster-whisper)**: 基于 CTranslate2 的 Whisper 推理加速
+- **[CTranslate2](https://github.com/OpenNMT/CTranslate2)**: 高性能 Transformer 推理引擎
+- **[transformers](https://huggingface.co/docs/transformers)**: Hugging Face 模型库
 
 ---
 
