@@ -53,16 +53,15 @@ def sensevoice_to_ass(audio_path, output_path=None):
     
     print(f"加载 SenseVoice 模型...")
     
-    # 默认本地模型路径
-    local_model = os.environ.get("SENSEVOICE_MODEL", "iic/SenseVoiceSmall")
+    # 默认本地模型路径（Windows）
+    model_path = "E:\\cuda\\SenseVoiceSmall"
     
-    # Windows 本地路径
-    if os.name == 'nt':
-        local_model = local_model.replace('/', '\\')
-        if not local_model.startswith('iic\\'):
-            local_model = "E:\\cuda\\SenseVoiceSmall"
-    
-    model_id = local_model
+    if os.path.exists(model_path):
+        model_id = model_path
+        print(f"使用本地模型: {model_path}")
+    else:
+        model_id = "iic/SenseVoiceSmall"
+        print("下载模型中...")
     
     recognition = pipeline(
         model_id,
