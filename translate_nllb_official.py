@@ -1,12 +1,13 @@
 #!/usr/bin/env python3
 """
-使用 Hugging Face Transformers 直接翻译 VTT 字幕
+使用 Hugging Face Transformers 直接翻译 ASS 字幕
 无需 CTranslate2
 """
 
 import warnings
 warnings.filterwarnings('ignore')
 
+import torch
 import transformers
 import re
 import time
@@ -63,7 +64,6 @@ def translate_text(tokenizer, model, text, source_lang="eng_Latn", target_lang="
 @torch.no_grad()
 def translate_batch(tokenizer, model, texts, source_lang="eng_Latn", target_lang="zho_Hans"):
     """批量翻译"""
-    import torch
     results = []
     for text in texts:
         results.append(translate_text(tokenizer, model, text, source_lang, target_lang))
