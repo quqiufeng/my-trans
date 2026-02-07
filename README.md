@@ -14,11 +14,7 @@ AI-powered video subtitle generation and translation tool. Supports automatic la
 
 ---
 
-## 项目地址 / Project
-
-**GitHub**: https://github.com/quqiufeng/my-trans
-
-**YouTube 字幕一键下载**:
+## YouTube 字幕一键下载:
 
 ```bash
 # 安装 yt-dlp
