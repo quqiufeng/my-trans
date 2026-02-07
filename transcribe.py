@@ -161,13 +161,18 @@ def transcribe_video(video_path, model, batched_model, language=None):
     model_size = get_model_size()
     print(f"模型: {model_size}, 使用高精度模式...")
     
+    use_word_timestamps = True
+    if language and language in ['zh', 'ja', 'ko']:
+        use_word_timestamps = False
+        print(f"语言: {language}, 使用段落级时间戳...")
+    
     transcribe_kwargs = {
         'batch_size': 8,
         'beam_size': 5,
         'no_speech_threshold': 0.6,
         'log_prob_threshold': -1.0,
         'patience': 1.0,
-        'word_timestamps': True
+        'word_timestamps': use_word_timestamps
     }
     
     if language:
@@ -178,7 +183,11 @@ def transcribe_video(video_path, model, batched_model, language=None):
         **transcribe_kwargs
     )
     
-    detected_lang = info.language if hasattr(info, 'language') else 'unknown'
+    if language:
+        detected_lang = language
+    else:
+        detected_lang = info.language if hasattr(info, 'language') else 'unknown'
+    
     print(f"检测到语言: {detected_lang}")
     output_path = video_path.parent / f"{video_path.stem}_{detected_lang}.ass"
     
@@ -230,6 +239,7 @@ def transcribe_video(video_path, model, batched_model, language=None):
 
 def main():
     video_exts = ['.mp4', '.mkv', '.avi', '.mov', '.flv', '.wmv', '.m4v']
+    language = None
     
     if not sys.argv[1:]:
         current_dir = Path(".")
@@ -255,7 +265,6 @@ def main():
         print()
     else:
         video_files = []
-        language = None
         
         args = sys.argv[1:]
         
