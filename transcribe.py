@@ -193,23 +193,9 @@ def transcribe_video(video_path, model, batched_model, output_format="ass"):
             end = segment.end
             text = segment.text.strip()
             
-            sentences = split_sentences(text)
-            
-            if len(sentences) == 1:
-                wrapped = wrap_text(text, 45)
-                ass_content += create_ass_dialogue(start, end, wrapped)
-                dialogue_count += 1
-            else:
-                duration = end - start
-                avg_duration = duration / len(sentences)
-                current_start = start
-                
-                for i, sentence in enumerate(sentences):
-                    wrapped = wrap_text(sentence, 45)
-                    current_end = start + (i + 1) * avg_duration
-                    ass_content += create_ass_dialogue(current_start, current_end, wrapped)
-                    dialogue_count += 1
-                    current_start = current_end
+            wrapped = wrap_text(text, 45)
+            ass_content += create_ass_dialogue(start, end, wrapped)
+            dialogue_count += 1
         
         with open(output_path, 'w', encoding='utf-8-sig') as f:
             f.write(ass_content)
@@ -228,27 +214,9 @@ def transcribe_video(video_path, model, batched_model, output_format="ass"):
             end_time_fmt = format_time_vtt(segment.end)
             text = segment.text.strip()
             
-            sentences = split_sentences(text)
-            
-            if len(sentences) == 1:
-                wrapped = wrap_text(text, 50)
-                vtt_content += f"{start_time_fmt} --> {end_time_fmt}\n{wrapped}\n\n"
-                dialogue_count += 1
-            else:
-                start_sec = segment.start
-                duration = segment.end - segment.start
-                avg_duration = duration / len(sentences)
-                
-                for i, sentence in enumerate(sentences):
-                    sentence_start = start_time_fmt
-                    sentence_end = format_time_vtt(start_sec + avg_duration)
-                    
-                    wrapped = wrap_text(sentence, 50)
-                    vtt_content += f"{sentence_start} --> {sentence_end}\n{wrapped}\n\n"
-                    
-                    dialogue_count += 1
-                    start_sec += avg_duration
-                    start_time_fmt = sentence_end
+            wrapped = wrap_text(text, 50)
+            vtt_content += f"{start_time_fmt} --> {end_time_fmt}\n{wrapped}\n\n"
+            dialogue_count += 1
         
         with open(output_path, 'w', encoding='utf-8') as f:
             f.write(vtt_content)
