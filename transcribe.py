@@ -181,7 +181,8 @@ def transcribe_video(video_path, model, batched_model, output_format="vtt"):
         beam_size=5,
         no_speech_threshold=0.6,
         log_prob_threshold=-1.0,
-        patience=1.0
+        patience=1.0,
+        word_timestamps=True
     )
     
     if output_format == "ass":
@@ -189,13 +190,38 @@ def transcribe_video(video_path, model, batched_model, output_format="vtt"):
         dialogue_count = 0
         
         for segment in segments:
-            start = segment.start
-            end = segment.end
-            text = segment.text.strip()
+            words = getattr(segment, 'words', [])
             
-            wrapped = wrap_text(text, 45)
-            ass_content += create_ass_dialogue(start, end, wrapped)
-            dialogue_count += 1
+            if not words:
+                start = segment.start
+                end = segment.end
+                text = segment.text.strip()
+                if text:
+                    wrapped = wrap_text(text, 45)
+                    ass_content += create_ass_dialogue(start, end, wrapped)
+                    dialogue_count += 1
+                continue
+            
+            i = 0
+            while i < len(words):
+                chunk_words = []
+                start_time = words[i].start
+                end_time = None
+                char_count = 0
+                
+                while i < len(words) and char_count < 50:
+                    word = words[i].word
+                    chunk_words.append(word)
+                    char_count += len(word) + 1
+                    end_time = words[i].end
+                    i += 1
+                
+                if chunk_words:
+                    text = ' '.join(chunk_words).strip()
+                    if text:
+                        wrapped = wrap_text(text, 45)
+                        ass_content += create_ass_dialogue(start_time, end_time, wrapped)
+                        dialogue_count += 1
         
         with open(output_path, 'w', encoding='utf-8-sig') as f:
             f.write(ass_content)
@@ -210,13 +236,40 @@ def transcribe_video(video_path, model, batched_model, output_format="vtt"):
         dialogue_count = 0
         
         for segment in segments:
-            start_time_fmt = format_time_vtt(segment.start)
-            end_time_fmt = format_time_vtt(segment.end)
-            text = segment.text.strip()
+            words = getattr(segment, 'words', [])
             
-            wrapped = wrap_text(text, 50)
-            vtt_content += f"{start_time_fmt} --> {end_time_fmt}\n{wrapped}\n\n"
-            dialogue_count += 1
+            if not words:
+                start_time_fmt = format_time_vtt(segment.start)
+                end_time_fmt = format_time_vtt(segment.end)
+                text = segment.text.strip()
+                if text:
+                    wrapped = wrap_text(text, 50)
+                    vtt_content += f"{start_time_fmt} --> {end_time_fmt}\n{wrapped}\n\n"
+                    dialogue_count += 1
+                continue
+            
+            i = 0
+            while i < len(words):
+                chunk_words = []
+                start_sec = words[i].start
+                end_sec = None
+                char_count = 0
+                
+                while i < len(words) and char_count < 50:
+                    word = words[i].word
+                    chunk_words.append(word)
+                    char_count += len(word) + 1
+                    end_sec = words[i].end
+                    i += 1
+                
+                if chunk_words:
+                    text = ' '.join(chunk_words).strip()
+                    if text:
+                        start_fmt = format_time_vtt(start_sec)
+                        end_fmt = format_time_vtt(end_sec)
+                        wrapped = wrap_text(text, 50)
+                        vtt_content += f"{start_fmt} --> {end_fmt}\n{wrapped}\n\n"
+                        dialogue_count += 1
         
         with open(output_path, 'w', encoding='utf-8') as f:
             f.write(vtt_content)
