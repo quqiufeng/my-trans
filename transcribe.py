@@ -152,7 +152,6 @@ def create_ass_dialogue(start, end, text, style="Default"):
 def transcribe_video(video_path, model, batched_model):
     """转录音频并保存为 ASS 格式"""
     video_path = Path(video_path)
-    output_path = video_path.parent / f"{video_path.stem}_en.ass"
     
     file_size_mb = video_path.stat().st_size / (1024 * 1024)
     start_time = time.time()
@@ -171,6 +170,10 @@ def transcribe_video(video_path, model, batched_model):
         patience=1.0,
         word_timestamps=True
     )
+    
+    detected_lang = info.language if hasattr(info, 'language') else 'unknown'
+    print(f"检测到语言: {detected_lang}")
+    output_path = video_path.parent / f"{video_path.stem}_{detected_lang}.ass"
     
     ass_content = create_ass_header()
     dialogue_count = 0
