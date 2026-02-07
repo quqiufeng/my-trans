@@ -173,7 +173,7 @@ ctranslate2        4.7.1
 
 ## 使用方法 / Usage
 
-### 1. 生成英文字幕 / Generate English Subtitles
+### 1. 生成字幕 / Generate Subtitles
 
 ```bash
 python transcribe.py video.mp4
@@ -239,7 +239,7 @@ python transcribe.py video1.mp4 video2.mp4 video3.mp4
 | 脚本 / Script | 功能 / Function |
 |-------------|--------------|
 | `download_models.py` | 下载模型到本地 / Download models to local |
-| `transcribe.py` | 使用 faster-whisper 生成英文字幕 / Generate English subtitles with faster-whisper |
+| `transcribe.py` | 使用 faster-whisper 生成 ASS 字幕 / Generate ASS subtitles with faster-whisper |
 | `translate_vtt.py` | 使用 CTranslate2+NLLB 翻译为双语字幕 / Translate to bilingual subtitles with CTranslate2+NLLB |
 | `translate_nllb_official.py` | 官方 transformers 版本的翻译脚本 / Official transformers version translation script |
 

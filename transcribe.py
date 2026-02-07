@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 使用 faster-whisper 本地模型生成 ASS 字幕
-支持单个或批量视频文件，默认输出 ASS 格式
+支持单个或批量视频文件
 """
 
 import warnings
@@ -9,7 +9,6 @@ warnings.filterwarnings('ignore')
 
 import time
 import sys
-import re
 from pathlib import Path
 from faster_whisper import WhisperModel, BatchedInferencePipeline
 
@@ -45,14 +44,6 @@ def format_time_ass(seconds):
     secs = int(seconds % 60)
     centisecs = int((seconds % 1) * 100)
     return f"{hours}:{minutes:02d}:{secs:02d}.{centisecs:02d}"
-
-def format_time_vtt(seconds):
-    """将秒数转换为 VTT 时间格式 (00:00:00.000)"""
-    hours = int(seconds // 3600)
-    minutes = int((seconds % 3600) // 60)
-    secs = int(seconds % 60)
-    millis = int((seconds % 1) * 1000)
-    return f"{hours:02d}:{minutes:02d}:{secs:02d}.{millis:03d}"
 
 def format_elapsed(seconds):
     """将秒数转换为易读格式"""
@@ -158,14 +149,10 @@ def create_ass_dialogue(start, end, text, style="Default"):
     text_escaped = text.replace("\\", "\\\\").replace("{", "\\{").replace("}", "\\}")
     return f"Dialogue: 0,{start_fmt},{end_fmt},{style},,0,0,0,,{text_escaped}\n"
 
-def transcribe_video(video_path, model, batched_model, output_format="ass"):
-    """转录音频并保存为字幕格式"""
+def transcribe_video(video_path, model, batched_model):
+    """转录音频并保存为 ASS 格式"""
     video_path = Path(video_path)
-    
-    if output_format == "ass":
-        output_path = video_path.with_suffix('.ass')
-    else:
-        output_path = video_path.with_suffix('.vtt')
+    output_path = video_path.with_suffix('.ass')
     
     file_size_mb = video_path.stat().st_size / (1024 * 1024)
     start_time = time.time()
@@ -185,111 +172,56 @@ def transcribe_video(video_path, model, batched_model, output_format="ass"):
         word_timestamps=True
     )
     
-    if output_format == "ass":
-        ass_content = create_ass_header()
-        dialogue_count = 0
+    ass_content = create_ass_header()
+    dialogue_count = 0
+    
+    for segment in segments:
+        words = getattr(segment, 'words', [])
         
-        for segment in segments:
-            words = getattr(segment, 'words', [])
+        if not words:
+            start = segment.start
+            end = segment.end
+            text = segment.text.strip()
+            if text:
+                wrapped = wrap_text(text, 45)
+                ass_content += create_ass_dialogue(start, end, wrapped)
+                dialogue_count += 1
+            continue
+        
+        i = 0
+        while i < len(words):
+            chunk_words = []
+            start_time = words[i].start
+            end_time = None
+            char_count = 0
             
-            if not words:
-                start = segment.start
-                end = segment.end
-                text = segment.text.strip()
+            while i < len(words) and char_count < 50:
+                word = words[i].word
+                chunk_words.append(word)
+                char_count += len(word) + 1
+                end_time = words[i].end
+                i += 1
+            
+            if chunk_words:
+                text = ' '.join(chunk_words).strip()
                 if text:
                     wrapped = wrap_text(text, 45)
-                    ass_content += create_ass_dialogue(start, end, wrapped)
+                    ass_content += create_ass_dialogue(start_time, end_time, wrapped)
                     dialogue_count += 1
-                continue
-            
-            i = 0
-            while i < len(words):
-                chunk_words = []
-                start_time = words[i].start
-                end_time = None
-                char_count = 0
-                
-                while i < len(words) and char_count < 50:
-                    word = words[i].word
-                    chunk_words.append(word)
-                    char_count += len(word) + 1
-                    end_time = words[i].end
-                    i += 1
-                
-                if chunk_words:
-                    text = ' '.join(chunk_words).strip()
-                    if text:
-                        wrapped = wrap_text(text, 45)
-                        ass_content += create_ass_dialogue(start_time, end_time, wrapped)
-                        dialogue_count += 1
-        
-        with open(output_path, 'w', encoding='utf-8-sig') as f:
-            f.write(ass_content)
-        
-        elapsed = time.time() - start_time
-        elapsed_str = format_elapsed(elapsed)
-        print(f"  → {output_path.name} ({dialogue_count} 条, {elapsed_str})")
-        return output_path, elapsed, file_size_mb, dialogue_count
     
-    else:
-        vtt_content = "WEBVTT\n\n"
-        dialogue_count = 0
-        
-        for segment in segments:
-            words = getattr(segment, 'words', [])
-            
-            if not words:
-                start_time_fmt = format_time_vtt(segment.start)
-                end_time_fmt = format_time_vtt(segment.end)
-                text = segment.text.strip()
-                if text:
-                    wrapped = wrap_text(text, 50)
-                    vtt_content += f"{start_time_fmt} --> {end_time_fmt}\n{wrapped}\n\n"
-                    dialogue_count += 1
-                continue
-            
-            i = 0
-            while i < len(words):
-                chunk_words = []
-                start_sec = words[i].start
-                end_sec = None
-                char_count = 0
-                
-                while i < len(words) and char_count < 50:
-                    word = words[i].word
-                    chunk_words.append(word)
-                    char_count += len(word) + 1
-                    end_sec = words[i].end
-                    i += 1
-                
-                if chunk_words:
-                    text = ' '.join(chunk_words).strip()
-                    if text:
-                        start_fmt = format_time_vtt(start_sec)
-                        end_fmt = format_time_vtt(end_sec)
-                        wrapped = wrap_text(text, 50)
-                        vtt_content += f"{start_fmt} --> {end_fmt}\n{wrapped}\n\n"
-                        dialogue_count += 1
-        
-        with open(output_path, 'w', encoding='utf-8') as f:
-            f.write(vtt_content)
-        
-        elapsed = time.time() - start_time
-        elapsed_str = format_elapsed(elapsed)
-        print(f"  → {output_path.name} ({dialogue_count} 条, {elapsed_str})")
-        return output_path, elapsed, file_size_mb, dialogue_count
+    with open(output_path, 'w', encoding='utf-8-sig') as f:
+        f.write(ass_content)
+    
+    elapsed = time.time() - start_time
+    elapsed_str = format_elapsed(elapsed)
+    
+    print(f"  → {output_path.name} ({dialogue_count} 条, {elapsed_str})")
+    return output_path, elapsed, file_size_mb, dialogue_count
 
 def main():
     video_exts = ['.mp4', '.mkv', '.avi', '.mov', '.flv', '.wmv', '.m4v']
     
-    output_format = "ass"
-    
-    args = sys.argv[1:]
-    if '--vtt' in args:
-        output_format = "ass"
-        args = [a for a in args if a != '--vtt']
-    
-    if not args:
+    if not sys.argv[1:]:
         current_dir = Path(".")
         video_files = []
         for ext in video_exts:
@@ -300,28 +232,20 @@ def main():
             print("用法:")
             print("  python transcribe.py 视频1.mp4")
             print("  python transcribe.py 视频1.mp4 视频2.mp4")
-            print("  python transcribe.py --vtt 视频.mp4  # 输出 VTT 格式")
             print()
             print("支持格式:", ", ".join(video_exts))
             print()
-            print("输出格式: ASS (默认, 思源字体, 精准时间)")
-            print("         --vtt: 输出 VTT 格式")
-            print()
-            print("支持格式:", ", ".join(video_exts))
-            print()
-            print("输出格式: ASS (默认, 思源字体)")
-            print("         --vtt: 输出 VTT 格式")
+            print("输出格式: ASS (思源字体, 精准时间)")
             print()
             print("当前目录没有找到视频文件")
             return
         
         video_files = [v.resolve() for v in video_files]
         print(f"扫描当前目录，找到 {len(video_files)} 个视频文件")
-        print(f"输出格式: {'ASS (思源字体)' if output_format == 'ass' else 'VTT'}")
         print()
     else:
         video_files = []
-        for arg in args:
+        for arg in sys.argv[1:]:
             path = Path(arg)
             if path.exists():
                 video_files.append(path.resolve())
@@ -339,7 +263,7 @@ def main():
     print("模型加载完成!\n")
     print_memory_usage()
     
-    print("\n高精度转录模式: beam_size=5, patience=1.0")
+    print("\n高精度转录模式: beam_size=5, word_timestamps=True")
     
     print(f"\n处理 {len(video_files)} 个视频")
     print("-" * 60)
@@ -350,7 +274,7 @@ def main():
     
     for i, video in enumerate(video_files, 1):
         print(f"[{i}/{len(video_files)}]")
-        output_path, elapsed, file_size, count = transcribe_video(video, model, batched_model, output_format)
+        output_path, elapsed, file_size, count = transcribe_video(video, model, batched_model)
         results.append((video.name, elapsed, file_size, count))
         total_elapsed += elapsed
         total_size += file_size
