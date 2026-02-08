@@ -134,9 +134,9 @@ ScaledBorderAndShadow: yes
 
 [V4+ Styles]
 Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
-Style: Default,Source Han Sans CN,42,&H0000A5FF,&H000000FF,&H00000000,&H00000000,-1,0,0,0,100,100,0,0,1,2,2,2,10,10,10,1
-Style: Top,Source Han Sans CN,36,&H0000A5FF,&H000000FF,&H00000000,&H00000000,-1,0,0,0,100,100,0,0,1,2,2,9,10,10,10,1
-Style: Comment,Source Han Sans CN,30,&H0000A5FF,&H000000FF,&H00000000,&H00000000,-1,1,0,0,100,100,0,0,1,1,0,7,10,10,10,1
+Style: Default,LXGW WenKai,46,&H0000A5FF,&H000000FF,&H00000000,&H00000000,-1,0,0,0,100,100,0,0,1,2,2,2,10,10,10,1
+Style: Top,LXGW WenKai,40,&H0000A5FF,&H000000FF,&H00000000,&H00000000,-1,0,0,0,100,100,0,0,1,2,2,9,10,10,10,1
+Style: Comment,LXGW WenKai,34,&H0000A5FF,&H000000FF,&H00000000,&H00000000,-1,1,0,0,100,100,0,0,1,1,0,7,10,10,10,1
 
 [Events]
 Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
@@ -149,7 +149,7 @@ def create_ass_dialogue(start, end, text, style="Default"):
     text_escaped = text.replace("{", "\\{").replace("}", "\\}")
     return f"Dialogue: 0,{start_fmt},{end_fmt},{style},,0,0,0,,{text_escaped}\n"
 
-def transcribe_video(video_path, model, batched_model, language=None):
+def transcribe_video(video_path, model, batched_model, offset=0.0):
     """转录音频并保存为 ASS 格式"""
     video_path = Path(video_path)
     
@@ -161,33 +161,22 @@ def transcribe_video(video_path, model, batched_model, language=None):
     model_size = get_model_size()
     print(f"模型: {model_size}, 使用高精度模式...")
     
-    use_word_timestamps = True
-    if language and language in ['zh', 'ja', 'ko']:
-        use_word_timestamps = False
-        print(f"语言: {language}, 使用段落级时间戳...")
-    
     transcribe_kwargs = {
-        'batch_size': 8,
+        'batch_size': 1,
         'beam_size': 5,
-        'no_speech_threshold': 0.6,
-        'log_prob_threshold': -1.0,
+        'no_speech_threshold': 0.2,
+        'log_prob_threshold': -0.5,
         'patience': 1.0,
-        'word_timestamps': use_word_timestamps
+        'word_timestamps': True
     }
-    
-    if language:
-        transcribe_kwargs['language'] = language
     
     segments, info = batched_model.transcribe(
         str(video_path),
         **transcribe_kwargs
     )
     
-    if language:
-        detected_lang = language
-    else:
-        detected_lang = info.language if hasattr(info, 'language') else 'unknown'
-    
+    detected_lang = info.language if hasattr(info, 'language') else 'unknown'
+
     print(f"检测到语言: {detected_lang}")
     output_path = video_path.parent / f"{video_path.stem}_{detected_lang}.ass"
     
@@ -198,8 +187,8 @@ def transcribe_video(video_path, model, batched_model, language=None):
         words = getattr(segment, 'words', [])
         
         if not words:
-            start = segment.start
-            end = segment.end
+            start = segment.start + offset
+            end = segment.end + offset
             text = segment.text.strip()
             if text:
                 wrapped = wrap_text(text, 45)
@@ -210,7 +199,7 @@ def transcribe_video(video_path, model, batched_model, language=None):
         i = 0
         while i < len(words):
             chunk_words = []
-            start_time = words[i].start
+            seg_start = words[i].start
             end_time = None
             char_count = 0
             
@@ -225,7 +214,7 @@ def transcribe_video(video_path, model, batched_model, language=None):
                 text = ' '.join(chunk_words).strip()
                 if text:
                     wrapped = wrap_text(text, 45)
-                    ass_content += create_ass_dialogue(start_time, end_time, wrapped)
+                    ass_content += create_ass_dialogue(seg_start + offset, end_time + offset, wrapped)
                     dialogue_count += 1
     
     with open(output_path, 'w', encoding='utf-8-sig') as f:
@@ -252,6 +241,7 @@ def main():
             print("用法:")
             print("  python transcribe.py 视频1.mp4")
             print("  python transcribe.py 视频1.mp4 视频2.mp4")
+            print("  python transcribe.py --offset=0.3 视频.mp4")
             print()
             print("支持格式:", ", ".join(video_exts))
             print()
@@ -268,17 +258,13 @@ def main():
         
         args = sys.argv[1:]
         
-        if '--lang=' in str(args):
+        offset = 0.0
+        if '--offset=' in str(args):
             for arg in args:
-                if arg.startswith('--lang='):
-                    language = arg.replace('--lang=', '')
+                if arg.startswith('--offset='):
+                    offset = float(arg.replace('--offset=', ''))
                     args = [a for a in args if a != arg]
                     break
-        elif '--lang' in args:
-            idx = args.index('--lang')
-            if idx + 1 < len(args):
-                language = args[idx + 1]
-                args = args[:idx] + args[idx + 2:]
         
         for arg in args:
             path = Path(arg)
@@ -309,7 +295,7 @@ def main():
     
     for i, video in enumerate(video_files, 1):
         print(f"[{i}/{len(video_files)}]")
-        output_path, elapsed, file_size, count = transcribe_video(video, model, batched_model, language)
+        output_path, elapsed, file_size, count = transcribe_video(video, model, batched_model, offset)
         results.append((video.name, elapsed, file_size, count))
         total_elapsed += elapsed
         total_size += file_size

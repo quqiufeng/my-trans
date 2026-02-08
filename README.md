@@ -148,6 +148,10 @@ python transcribe.py video.mp4
 ```
 输出: `video.ass`
 
+**参数：**
+- `--offset=0.3` - 字幕时间偏移校正（秒），字幕提前显示时用正数
+- 不指定文件时，自动扫描当前目录
+
 ### 2. 翻译为双语字幕
 
 ```bash
@@ -173,17 +177,22 @@ python transcribe.py video1.mp4 video2.mp4 video3.mp4
 | `de` | German |
 | `es` | Spanish |
 
----
+### 字体配置
 
-## 脚本说明
+默认使用 **LXGW WenKai** 字体。
 
-| 脚本 | 功能 |
+**Windows 安装：**
+1. 下载 LXGW WenKai 字体：https://github.com/lxgw/LxgwWenKai
+2. 安装到系统
+
+**字幕样式：**
+| 样式 | 字号 |
 |------|------|
-| `download_models.py` | 下载模型到本地 |
-| `transcribe.py` | 使用 faster-whisper 生成 ASS 字幕 |
-| `my_whisper.py` | OpenAI Whisper 识别（备用） |
-| `translate.py` | 使用 CTranslate2+NLLB 翻译为双语字幕 |
-| `translate_nllb_official.py` | 官方 transformers 版本的翻译脚本 |
+| Default | 46 |
+| Top | 40 |
+| Comment | 34 |
+
+如需更换字体，编辑各脚本中的 `Style` 行。
 
 ---
 
