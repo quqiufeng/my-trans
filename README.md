@@ -10,6 +10,109 @@ AI-powered video subtitle generation and translation tool. Supports automatic la
 
 ---
 
+## 推荐工作流程
+
+### 高质量双语字幕制作流程
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│  视频.mp4                                                        │
+│      ↓                                                           │
+│  1. transcribe.py  →  生成英文字幕 (Whisper)                     │
+│      ↓                                                           │
+│  2. 人工校对英文   →  修正识别错误、专有名词                      │
+│      ↓                                                           │
+│  3. llm.py        →  窗口滑动翻译成中文                          │
+│      ↓                                                           │
+│  4. 视频名.ass    →  精准双语字幕 (对齐时间轴)                   │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### 步骤详解
+
+#### 步骤 1：生成英文字幕
+
+```bash
+# 转录音频，生成英文字幕
+python transcribe.py video.mp4
+
+# 常用参数
+python transcribe.py video.mp4 --offset=0.3    # 时间偏移校正
+```
+
+输出：`video_en.ass`
+
+#### 步骤 2：人工校对英文
+
+**重要性**：英文准确 = 翻译基础
+
+**校对要点**：
+- 修正 Whisper 识别错误（特别是专业术语）
+- 统一专有名词翻译（如 OCaml, Cornell, CS3110）
+- 修正语法和拼写
+- 调整字幕断句（过长/过短）
+
+**工具**：
+- VS Code + 支持 ASS 语法高亮
+- 或任意文本编辑器
+
+**示例校对**：
+```diff
+- # 原始识别（可能有误）
+- few years, I've taught OCaml to about 3 ,700
++ # 校对后
++ few years, I've taught OCaml to about 3,700
+```
+
+#### 步骤 3：窗口滑动翻译
+
+```bash
+# 扫描当前目录所有 ASS 文件
+python llm.py
+
+# 或指定单个文件
+python llm.py video_en.ass
+```
+
+**算法特点**：
+- 滑动窗口：每条字幕翻译时参考前 2 条中文译文
+- 温度 0：确定性输出，不合并不拆分
+- 严格 1:1 对齐：保证时间轴准确
+
+输出：`video_en.ass` → `video.ass`（双语）
+
+### 完整命令
+
+```bash
+# 1. 生成英文字幕
+python transcribe.py "我的视频.mp4"
+
+# 2. 人工校对 video_en.ass
+
+# 3. 翻译成中文（扫描当前目录）
+python llm.py
+
+# 4. 得到双语字幕
+ls *.ass
+# Introduction_OCaml_Programming_Chapter_1_Video_1_en.ass  (原版)
+# Introduction_OCaml_Programming_Chapter_1_Video_1.ass     (双语)
+```
+
+### 为什么这个流程质量高？
+
+| 环节 | 作用 | 质量保障 |
+|------|------|----------|
+| Whisper 语音识别 | 生成原始字幕 | AI 自动处理 |
+| 人工校对英文 | 修正原文错误 | 人工确保准确 |
+| 窗口滑动翻译 | 生成中文 | LLM 高质量 + 算法对齐 |
+
+**核心优势**：
+1. **英文准确** - 人工校对确保原文正确
+2. **中文地道** - LLM 翻译比 NLLB 更自然
+3. **时间轴对齐** - 窗口滑动算法保证 1:1 对应
+
+---
+
 ## 快速开始 / Quick Start
 
 ```bash
