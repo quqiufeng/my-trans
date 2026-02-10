@@ -270,8 +270,8 @@ def translate_ass(ass_path, source_lang='eng'):
     print(f"翻译耗时: {format_elapsed(elapsed)}")
     print()
     
-    # 解析结果
-    translations = parse_translations(raw_result, len(blocks))
+    # translate_batch 现在直接返回翻译列表
+    translations = raw_result
     
     # 检查翻译成功率
     success_count = sum(1 for t in translations if t is not None)
