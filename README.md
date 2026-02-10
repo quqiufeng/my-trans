@@ -43,6 +43,8 @@ python llm.py video.ass
 
 ## LM Studio 配置
 
+**官方主页**: https://lmstudio.ai/
+
 - **模型**: [Qwen2.5-7B-Instruct-GGUF](https://huggingface.co/mradermacher/Qwen2.5-7B-Instruct-GGUF)
 - **量化版本**: `Qwen2.5-7B-Instruct.Q5_K_M.gguf`
 - **模型路径**: `E:\model\mradermacher\Qwen2.5-7B-Instruct-GGUF`
