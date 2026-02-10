@@ -47,8 +47,8 @@ def translate_batch(blocks, source_lang='eng', target_lang='zh'):
     texts = [b['text'] for b in blocks]
     total = len(texts)
     
-    # 分批翻译，每批 30 条
-    BATCH_SIZE = 30
+    # 分批翻译，每批 15 条（减少数量防止合并）
+    BATCH_SIZE = 15
     all_translations = []
     
     for batch_start in range(0, total, BATCH_SIZE):
@@ -63,16 +63,14 @@ def translate_batch(blocks, source_lang='eng', target_lang='zh'):
 
 要求：
 1. 简洁明了，适合字幕显示
-2. 专有名词首次出现时标注原文，如：Transformer（转换器）
+2. 专有名词首次出现时标注原文
 3. 保持原意和说话语气
-4. **重要：必须逐条翻译，一条对应一条，完全匹配！**
+4. **绝对不能合并！输入多少条就必须输出多少条，一条对应一条！**
 
-请严格按 JSON 数组格式输出（每个元素对应一条翻译）：
+共{len(batch_texts)}条字幕，**必须严格输出{len(batch_texts)}条翻译**！
 
-["翻译1", "翻译2", "翻译3", ...]
-
-共{len(batch_texts)}条字幕，输出{len(batch_texts)}个翻译：
-
+请输出 JSON 数组（每个元素是一条翻译）：
+["翻译1", "翻译2", ...]
 """
         for i, text in enumerate(batch_texts):
             prompt += f'"{text}"\n'
@@ -140,7 +138,10 @@ def translate_batch(blocks, source_lang='eng', target_lang='zh'):
             
             # 如果解析失败，尝试逐行解析作为备选
             if not translations_batch or len(translations_batch) != len(batch_texts):
-                print(f"    JSON解析结果不完整，尝试逐行解析...")
+                if translations_batch:
+                    print(f"    ⚠️ LLM只返回{len(translations_batch)}条，期望{len(batch_texts)}条，尝试逐行解析...")
+                else:
+                    print(f"    JSON解析失败，尝试逐行解析...")
                 batch_translations = []
                 for line in content.split('\n'):
                     line = line.strip()
