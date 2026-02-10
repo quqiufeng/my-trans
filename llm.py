@@ -65,19 +65,23 @@ def translate_batch(blocks, source_lang='eng', target_lang='zh'):
 1. 简洁明了，适合字幕显示
 2. 专有名词首次出现时标注原文，如：Transformer（转换器）
 3. 保持原意和说话语气
-4. **必须全部翻译完，一行一个，不能遗漏任何一条**
+4. **重要：必须逐条翻译，输入多少条就输出多少条，一条对应一条，不能合并！**
 
-共{len(batch_texts)}条字幕，序号从1到{len(batch_texts)}：
+共{len(batch_texts)}条字幕，**必须输出{len(batch_texts)}条翻译**，序号必须对应：
 
 """
         for i, text in enumerate(batch_texts):
-            prompt += f"{i+1}. {text}\n"
+            prompt += f"[{i+1}] {text}\n"
         
         prompt += f"""
 
-翻译（共{len(batch_texts)}条，必须全部翻译完，格式：序号. 翻译内容）：
+请输出 {len(batch_texts)} 行翻译（严格按以下格式）：
 
 """
+
+        # 预先填充序号格式，让 LLM 填空
+        for i in range(len(batch_texts)):
+            prompt += f"{i+1}. "
 
         payload = {
             "model": MODEL,
