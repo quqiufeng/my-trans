@@ -43,17 +43,21 @@ def format_elapsed(seconds):
         return f"{seconds//3600}小时{(seconds%3600)//60}分"
 
 def translate_batch(blocks, source_lang='eng', target_lang='zh'):
-    """批量翻译字幕 - 分批处理确保翻译完整"""
+    """翻译字幕 - 分批确保完整"""
     texts = [b['text'] for b in blocks]
     total = len(texts)
     
-    # 分批翻译，每批 30 条（确保不超过 token 限制）
+    # 分批翻译，每批 30 条
     BATCH_SIZE = 30
     all_translations = []
     
     for batch_start in range(0, total, BATCH_SIZE):
         batch_end = min(batch_start + BATCH_SIZE, total)
         batch_texts = texts[batch_start:batch_end]
+        batch_num = batch_start // BATCH_SIZE + 1
+        total_batches = (total + BATCH_SIZE - 1) // BATCH_SIZE
+        
+        print(f"  翻译批次 {batch_num}/{total_batches}...")
         
         prompt = f"""请将以下{source_lang}字幕翻译成{target_lang}。
 
@@ -61,20 +65,19 @@ def translate_batch(blocks, source_lang='eng', target_lang='zh'):
 1. 简洁明了，适合字幕显示
 2. 专有名词首次出现时标注原文，如：Transformer（转换器）
 3. 保持原意和说话语气
-4. **严格按照序号输出，只输出翻译**
+4. **必须全部翻译完，不能遗漏**
 
 请严格按以下格式输出（共{len(batch_texts)}条）：
 """
         for i, text in enumerate(batch_texts):
             prompt += f"{i+1}. {text}\n"
-        prompt += f"\n翻译（只输出{len(batch_texts)}行翻译，不要序号前缀）：\n"
-        for i in range(len(batch_texts)):
-            prompt += f"{i+1}. "
+        
+        prompt += f"\n翻译（输出{len(batch_texts)}行，必须全部翻译完）：\n"
 
         payload = {
             "model": MODEL,
             "messages": [{"role": "user", "content": prompt}],
-            "max_tokens": 8192,
+            "max_tokens": max(4096, len(batch_texts) * 100),
             "temperature": 0.1
         }
 
@@ -84,27 +87,36 @@ def translate_batch(blocks, source_lang='eng', target_lang='zh'):
             result = response.json()
             content = result["choices"][0]["message"]["content"].strip()
             
-            # 解析这批翻译
+            # 解析翻译结果
             batch_translations = []
             for line in content.split('\n'):
                 line = line.strip()
                 if not line:
                     continue
-                # 移除序号
-                match = re.match(r'^[\d]+[\.\)]\s*(.+)', line)
+                match = re.match(r'^(\d+)[\.\)]\s*(.+)', line)
                 if match:
-                    batch_translations.append(match.group(1))
-                elif len(line) > 3:  # 可能是没有序号的翻译
-                    batch_translations.append(line)
+                    try:
+                        idx = int(match.group(1)) - 1
+                        if 0 <= idx < len(batch_texts):
+                            batch_translations.append((idx, match.group(2).strip()))
+                    except ValueError:
+                        pass
             
-            all_translations.extend(batch_translations)
+            # 按序号排序并提取翻译
+            batch_translations.sort(key=lambda x: x[0])
+            translations_batch = [t[1] for t in batch_translations]
             
-            batch_num = batch_start // BATCH_SIZE + 1
-            print(f"  批次 {batch_num}/{(total + BATCH_SIZE - 1) // BATCH_SIZE}: {len(batch_translations)} 条翻译")
+            # 如果解析不完整，用原文填充
+            while len(translations_batch) < len(batch_texts):
+                translations_batch.append(batch_texts[len(translations_batch)])
+            
+            all_translations.extend(translations_batch)
+            
+            print(f"    批次 {batch_num}: {len(translations_batch)}/{len(batch_texts)} 条")
             
         except Exception as e:
-            print(f"批次 {batch_start // BATCH_SIZE + 1} 翻译错误: {e}")
-            all_translations.extend([None] * len(batch_texts))
+            print(f"    批次 {batch_num} 错误: {e}")
+            all_translations.extend(batch_texts)  # 出错用原文
     
     return all_translations
 
@@ -150,45 +162,6 @@ def parse_ass(ass_path):
     
     return blocks
 
-def parse_translations(content, total_count):
-    """解析翻译结果 - 严格按序号匹配"""
-    translations = [None] * total_count
-    
-    # 移除代码块标记
-    content = content.strip()
-    lines = content.split('\n')
-    
-    for line in lines:
-        line = line.strip()
-        if not line:
-            continue
-        
-        # 移除 ``` 标记
-        if line.startswith('```'):
-            continue
-        
-        # 匹配 "1. 翻译内容" 格式
-        match = re.match(r'^(\d+)[\.\)]\s*(.+)', line)
-        if match:
-            try:
-                idx = int(match.group(1)) - 1
-                translation = match.group(2).strip()
-                if 0 <= idx < total_count:
-                    translations[idx] = translation
-            except ValueError:
-                pass
-            continue
-        
-        # 如果没有序号，且是纯翻译（没有数字开头）
-        if not line[0:1].isdigit() and '|' not in line:
-            # 自动分配给第一个未翻译的条目
-            for i in range(total_count):
-                if translations[i] is None:
-                    translations[i] = line
-                    break
-    
-    return translations
-
 def create_bilingual_ass(blocks, translations, original_content=""):
     """创建双语 ASS"""
     if not original_content:
@@ -227,7 +200,7 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
         start = block['start']
         end = block['end']
         if trans:
-            text = f"{trans}\\N{block['text']}"
+            text = f"{block['text']}\\N{trans}"  # 原文在上，翻译在下
         else:
             text = block['text']
         text = text.replace("{", "\\{").replace("}", "\\}")
