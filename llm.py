@@ -116,38 +116,43 @@ def parse_translations(content, total_count):
     """解析翻译结果"""
     translations = [None] * total_count
     
+    # 移除代码块标记
+    content = content.strip()
+    if content.startswith('```'):
+        lines = content.split('\n')
+        if lines[0].startswith('```'):
+            lines = lines[1:]
+        if lines and lines[-1].startswith('```'):
+            lines = lines[:-1]
+        content = '\n'.join(lines)
+    
+    # 逐行解析
+    current_idx = 0  # 自动递增序号
+    
     for line in content.split('\n'):
         line = line.strip()
-        if not line or '|' not in line:
+        if not line:
             continue
-        if line.startswith('`'):
-            line = line.strip('`').strip()
-        if '|' not in line:
-            continue
-            
-        parts = line.split('|', 1)
-        if len(parts) != 2:
-            continue
-            
-        left = parts[0].strip()
-        right = parts[1].strip()
         
-        # 跳过序号
-        if left.isdigit():
-            idx = int(left) - 1
-            if 0 <= idx < total_count:
-                translations[idx] = right
-        # 跳过原文
-        elif left.startswith(f'{total_count + 1}.'):
-            continue
-        else:
-            # 可能是 "1. 原文|翻译" 格式
-            match = re.match(r'^(\d+)\.\s*(.+)\|(.+)', line)
-            if match:
-                idx = int(match.group(1)) - 1
-                trans = match.group(3).strip()
-                if 0 <= idx < total_count:
-                    translations[idx] = trans
+        # 移除行号前缀如 "1." 或 "1)"
+        line_clean = re.sub(r'^[\d]+\.?\s*', '', line)
+        
+        # 查找 | 分隔符
+        if '|' in line_clean:
+            parts = line_clean.split('|', 1)
+            if len(parts) == 2:
+                original = parts[0].strip()
+                translated = parts[1].strip()
+                
+                # 如果左边是序号或原文太长，跳过
+                if original.isdigit():
+                    idx = int(original) - 1
+                    if 0 <= idx < total_count:
+                        translations[idx] = translated
+                elif current_idx < total_count:
+                    # 自动分配序号
+                    translations[current_idx] = translated
+                    current_idx += 1
     
     return translations
 
