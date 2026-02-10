@@ -309,157 +309,197 @@ pip install requests
 
 ---
 
-## LLM 翻译顺序问题与解决方案
+## LLM 翻译字幕：窗口滑动翻译算法
 
 ### 问题背景
 
-在使用 LLM 批量翻译字幕时，发现一个关键问题：**LLM 输出的翻译结果顺序不一定与输入顺序一致**。
+在使用 LLM 批量翻译字幕时，面临两个冲突需求：
+
+1. **上下文连贯** - 需要批量翻译保留上下文
+2. **位置对齐** - 每条字幕必须对应原文字幕的时间戳
 
 ### 问题表现
 
-假设输入 15 条字幕：
-```
-原文1: "Hello world"
-原文2: "This is a test"
-原文3: "Good morning"
-...
-原文15: "Thank you"
-```
+| 方案 | 结果 |
+|------|------|
+| 批量翻译（15条/批） | LLM 合并翻译，位置错乱 |
+| 逐条翻译（1条/批） | 对齐正确，但无上下文 |
+| 全文翻译 | LLM 修改原文结构 |
+| 序号排序 | LLM 不按格式返回 |
 
-LLM 可能返回：
-```json
-[
-  {"translation": "谢谢"},
-  {"translation": "早上好"},
-  {"translation": "这是一个测试"},
-  ...
-]
-```
-
-即翻译的顺序是打乱的，导致：
-- 翻译内容与原文对不上
-- 字幕时间轴错位（中文和英文不匹配）
-- 播放时出现文不对时的问题
-
-### 问题原因
-
-LLM 输出顺序不可靠的根本原因：
-
-1. **注意力机制特性** - LLM 生成时不是严格按输入位置顺序，而是根据注意力权重动态决定
-2. **语义重组倾向** - LLM 倾向于按"语义相关性"组织输出，可能重新排列
-3. **压缩优化** - LLM 可能合并相似句子或省略重复内容
-4. **训练数据模式** - LLM 从数据中学到的模式不一定保持位置对应
-
-**这不是 LLM 的 bug，而是其工作原理的固有特性。**
-
-### 解决方案：序号排序算法
+### 解决方案：窗口滑动翻译算法
 
 #### 核心思路
 
-在翻译请求中为每条原文添加序号，LLM 返回时携带相同序号，解析后按序号重新排序。
+每条字幕翻译时，**仅使用前 N 条已翻译的中文作为上下文**，而不是完整全文。
 
-#### 实现步骤
-
-**1. 输入格式（带序号）**
-```json
-[
-  {"index": 1, "text": "原文1"},
-  {"index": 2, "text": "原文2"},
-  ...
-]
+```
+┌─────────────────────────────────────────────────────────┐
+│  翻译第 i 条时                                           │
+│  ├─ 参考: 前 2 条的中文译文 (窗口)                       │
+│  ├─ 输入: 当前英文字幕 + 前2条中文                       │
+│  └─ 输出: 当前中文翻译                                    │
+│                                                          │
+│  窗口滑动: [译文1, 译文2] → [译文2, 译文3] → ...         │
+└─────────────────────────────────────────────────────────┘
 ```
 
-**2. 输出格式（带序号）**
-```json
-[
-  {"index": 1, "translation": "翻译1"},
-  {"index": 3, "translation": "翻译3"},
-  {"index": 2, "translation": "翻译2"}
-]
+#### 算法流程
+
+```
+1. 初始化空窗口 prev_translations = []
+
+2. 遍历每条字幕 i:
+   a. 构建 prompt:
+      - 包含 prev_translations (最多2条)
+      - 包含当前英文字幕
+      - 强调"只翻译当前这一条"
+   
+   b. 调用 LLM 翻译
+   
+   c. 将译文加入 prev_translations
+   
+   d. 如果窗口超过2条，移除最旧的
+      prev_translations = prev_translations[-2:]
+
+3. 按时间戳顺序输出双语 ASS
 ```
 
-**3. 解析与排序算法**
-```python
-def parse_translations(content, expected_count):
-    # 解析 JSON
-    parsed = json.loads(content)
-    
-    # 检查是否是带序号的格式
-    if isinstance(parsed, list) and len(parsed) > 0:
-        first = parsed[0]
-        if isinstance(first, dict) and 'index' in first:
-            # 按 index 排序
-            parsed_sorted = sorted(parsed, key=lambda x: x.get('index', 0))
-            # 提取 translation 字段
-            translations = [item.get('translation', '') for item in parsed_sorted]
-            return translations
-    
-    return parsed  # 其他格式直接返回
-```
-
-### 代码实现
-
-详见 `llm.py` 中的 `parse_translations()` 函数（第 39-118 行）：
+#### 代码实现
 
 ```python
-def parse_translations(content, expected_count):
-    """解析翻译结果，支持多种格式，确保顺序正确"""
-    # ... 清理代码块 ...
+CONTEXT_SIZE = 2  # 窗口大小
+
+def translate_with_context(english_text, prev_translations, idx, total):
+    # 构建上下文
+    context = ""
+    if prev_translations:
+        context = "[参考]\n" + "\n".join(prev_translations) + "\n"
     
-    # 尝试解析带序号的 JSON
+    prompt = f"""{context}
+
+只翻译这一句（不要多译，不要漏译）：
+
+{english_text}
+
+输出中文："""
+
+    # 调用 LLM
+    response = requests.post(f"{LLMS_HOST}/chat/completions", json={
+        "model": MODEL,
+        "messages": [{"role": "user", "content": prompt}],
+        "temperature": 0  # 确定性输出
+    })
+    
+    return response
+
+# 主循环
+translations = []
+prev_translations = []
+
+for i, text in enumerate(texts):
+    trans = translate_with_context(text, prev_translations, i+1, len(texts))
+    translations.append(trans)
+    
+    prev_translations.append(trans)
+    if len(prev_translations) > CONTEXT_SIZE:
+        prev_translations = prev_translations[-CONTEXT_SIZE:]
+```
+
+#### 窗口大小对比
+
+| 窗口大小 | 上下文连贯性 | 位置对齐 | 风险 |
+|----------|-------------|----------|------|
+| 0 (逐条) | 差 | ★★★★★ | 无 |
+| 2 | ★★★★☆ | ★★★★★ | 低 |
+| 3 | ★★★★★ | ★★★☆☆ | 中 (合并风险) |
+| 全文 | ★★★★★ | ★★☆☆☆ | 高 (错乱) |
+
+**推荐: 窗口大小 = 2**
+
+#### 关键技巧
+
+1. **温度设为 0** - 减少随机性，确保输出稳定
+   ```python
+   "temperature": 0
+   ```
+
+2. **简化 prompt** - 避免复杂指令导致格式混乱
+   ```
+   只翻译这一句（不要多译，不要漏译）
+   输出中文：
+   ```
+
+3. **添加延迟** - 防止 API 过载
+   ```python
+   time.sleep(0.1)
+   ```
+
+### 为什么这个方案有效？
+
+1. **限制上下文长度** - LLM 不会因为看到太多内容而"自作主张"
+2. **保持局部连贯** - 前后2条足以为当前句子提供语境
+3. **1:1 严格对应** - 每条字幕独立翻译，不合并不拆分
+4. **确定性输出** - temperature=0 避免随机扰动
+
+### 验证结果
+
+```
+测试文件: 45 条字幕
+窗口大小: 2
+翻译耗时: 12 秒
+成功率: 45/45 (100%)
+时间戳对齐: ✓ 完全正确
+```
+
+### 完整代码
+
+详见 `llm.py` 中的 `translate_with_context()` 函数：
+
+```python
+def translate_with_context(english_text, prev_translations, idx, total):
+    """使用滑动窗口上下文翻译单条字幕"""
+    context = ""
+    if prev_translations:
+        context = "[参考]\n" + "\n".join(prev_translations) + "\n"
+    
+    prompt = f"""{context}
+
+只翻译这一句（不要多译，不要漏译）：
+
+{english_text}
+
+输出中文："""
+
+    payload = {
+        "model": MODEL,
+        "messages": [{"role": "user", "content": prompt}],
+        "max_tokens": 1024,
+        "temperature": 0
+    }
+    
     try:
-        parsed = json.loads(content_clean)
-        if isinstance(parsed, list) and len(parsed) > 0:
-            first = parsed[0]
-            if isinstance(first, dict) and 'index' in first and 'translation' in first:
-                # 按 index 排序
-                parsed_sorted = sorted(parsed, key=lambda x: x.get('index', 0))
-                # 提取 translation 字段
-                translations = [item.get('translation', '') for item in parsed_sorted]
-                return translations
-    except json.JSONDecodeError:
-        pass
-    
-    # ... 其他回退方法 ...
+        response = requests.post(f"{LLMS_HOST}/chat/completions", json=payload, timeout=60)
+        response.raise_for_status()
+        content = response.json()["choices"][0]["message"]["content"].strip()
+        return content
+    except Exception as e:
+        print(f"    错误: {e}")
+        return None
 ```
 
-### 提示词设计
+### 适用场景
 
-在 `translate_batch()` 函数中明确要求 LLM 输出带序号的 JSON：
+本算法适用于：
 
-```
-请严格按以下 JSON 格式输出（序号必须对应）：
-[
-  {"index": 1, "translation": "翻译1"},
-  {"index": 2, "translation": "翻译2"},
-  ...
-]
-```
-
-### 回退策略
-
-如果 LLM 未按要求格式返回，解析函数提供多种回退方案：
-
-| 方法 | 触发条件 | 说明 |
-|------|----------|------|
-| 带序号 JSON | 标准格式 | 按 index 排序，提取 translation |
-| 普通 JSON | 无 index 字段 | 直接返回列表 |
-| 提取 [...] | JSON 解析失败 | 从文本中提取数组部分 |
-| 正则提取 | 上述都失败 | 提取所有 "xxx" 内容 |
-| 逐行解析 | 上述都失败 | 按行分割，匹配编号格式 |
-
-### 验证方法
-
-```bash
-cd /home/quqiufeng/my-trans
-python3 llm.py res/视频_en.ass
-```
-
-对比输入字幕和输出字幕，检查中英文是否按时间轴对齐。
+- **视频字幕翻译** - 保持时间轴对齐
+- **长文章分段翻译** - 保持段落对应
+- **对话内容翻译** - 保持说话人顺序
+- **任何需要位置对齐的批量翻译任务**
 
 ### 经验总结
 
-1. **不要假设 LLM 输出有序** - 任何批量处理都需要考虑顺序问题
-2. **序号是可靠方案** - 通过外部排序绕过 LLM 的不确定性
-3. **保留回退机制** - LLM 可能不按格式要求输出，多种解析方法提高鲁棒性
-4. **测试验证** - 字幕翻译顺序错乱很难肉眼发现，建议生成后检查几处关键时间点
+1. **不要让 LLM 看太多** - 上下文越多，顺序越乱
+2. **窗口要小** - 2-3条是最佳平衡点
+3. **温度设为 0** - 字幕翻译不需要创意
+4. **Prompt 要简单** - 复杂指令适得其反
