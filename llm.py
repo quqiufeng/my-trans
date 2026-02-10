@@ -118,41 +118,58 @@ def parse_translations(content, total_count):
     
     # 移除代码块标记
     content = content.strip()
-    if content.startswith('```'):
-        lines = content.split('\n')
-        if lines[0].startswith('```'):
-            lines = lines[1:]
-        if lines and lines[-1].startswith('```'):
-            lines = lines[:-1]
-        content = '\n'.join(lines)
-    
-    # 逐行解析
-    current_idx = 0  # 自动递增序号
-    
-    for line in content.split('\n'):
+    lines = content.split('\n')
+    clean_lines = []
+    for line in lines:
         line = line.strip()
-        if not line:
+        # 移除 ``` 标记
+        if line.startswith('```'):
+            continue
+        # 移除行号如 "1." "2."
+        line = re.sub(r'^[\d]+\.?\s*', '', line)
+        if line:
+            clean_lines.append(line)
+    
+    # 逐行解析 | 分隔的翻译
+    for line in clean_lines:
+        if '|' not in line:
             continue
         
-        # 移除行号前缀如 "1." 或 "1)"
-        line_clean = re.sub(r'^[\d]+\.?\s*', '', line)
+        parts = line.split('|', 1)
+        if len(parts) != 2:
+            continue
         
-        # 查找 | 分隔符
-        if '|' in line_clean:
-            parts = line_clean.split('|', 1)
-            if len(parts) == 2:
-                original = parts[0].strip()
-                translated = parts[1].strip()
-                
-                # 如果左边是序号或原文太长，跳过
-                if original.isdigit():
-                    idx = int(original) - 1
-                    if 0 <= idx < total_count:
-                        translations[idx] = translated
-                elif current_idx < total_count:
-                    # 自动分配序号
-                    translations[current_idx] = translated
-                    current_idx += 1
+        original = parts[0].strip()
+        translated = parts[1].strip()
+        
+        # 如果原文部分包含序号（如 "1. Hello"），尝试提取
+        orig_parts = original.split(None, 1)
+        if len(orig_parts) == 2 and orig_parts[0].isdigit():
+            # 左边是序号，右边是原文片段
+            # 这种情况说明翻译结果是 "序号 原文片段|翻译"
+            # 我们需要找到对应索引
+            try:
+                idx = int(orig_parts[0]) - 1
+                if 0 <= idx < total_count:
+                    translations[idx] = translated
+            except ValueError:
+                pass
+        elif original.isdigit():
+            # 左边是纯数字（序号）
+            try:
+                idx = int(original) - 1
+                if 0 <= idx < total_count:
+                    translations[idx] = translated
+            except ValueError:
+                pass
+        else:
+            # 可能是原文太长，直接取翻译部分
+            # 这种情况通常是模型没有严格按照格式输出
+            # 尝试自动分配
+            for i in range(total_count):
+                if translations[i] is None:
+                    translations[i] = translated
+                    break
     
     return translations
 
