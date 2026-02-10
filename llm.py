@@ -65,11 +65,13 @@ def translate_batch(blocks, source_lang='eng', target_lang='zh'):
 1. 简洁明了，适合字幕显示
 2. 专有名词首次出现时标注原文
 3. 保持原意和说话语气
-4. **绝对不能合并！输入多少条就必须输出多少条，一条对应一条！**
+4. **绝对不能合并！绝对不能省略！输入{len(batch_texts)}条就必须输出{len(batch_texts)}条，一条对应一条！**
+5. **保留原句的标点符号和断句位置，不能跨句合并！**
+6. **每条翻译必须与对应原文严格一一对应！**
 
 共{len(batch_texts)}条字幕，**必须严格输出{len(batch_texts)}条翻译**！
 
-请输出 JSON 数组（每个元素是一条翻译）：
+请输出 JSON 数组（每个元素是一条翻译，顺序不能乱）：
 ["翻译1", "翻译2", ...]
 """
         for i, text in enumerate(batch_texts):
@@ -77,7 +79,7 @@ def translate_batch(blocks, source_lang='eng', target_lang='zh'):
         
         prompt += f"""
 
-请直接输出 JSON 数组，不要其他内容："""
+请直接输出 JSON 数组，不要任何其他内容："""
 
         payload = {
             "model": MODEL,
