@@ -8,54 +8,54 @@ ScaledBorderAndShadow: yes
 
 [V4+ Styles]
 Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
-Style: Default,Source Han Sans CN,42,&H0000A5FF,&H000000FF,&H00000000,&H00000000,-1,0,0,0,100,100,0,0,1,2,2,2,10,10,10,1
-Style: Top,Source Han Sans CN,36,&H0000A5FF,&H000000FF,&H00000000,&H00000000,-1,0,0,0,100,100,0,0,1,2,2,9,10,10,10,1
-Style: Comment,Source Han Sans CN,30,&H0000A5FF,&H000000FF,&H00000000,&H00000000,-1,1,0,0,100,100,0,0,1,1,0,7,10,10,10,1
+Style: Default,LXGW WenKai,46,&H0000A5FF,&H000000FF,&H00000000,&H00000000,-1,0,0,0,100,100,0,0,1,2,2,2,10,10,10,1
+Style: Top,LXGW WenKai,40,&H0000A5FF,&H000000FF,&H00000000,&H00000000,-1,0,0,0,100,100,0,0,1,2,2,9,10,10,10,1
+Style: Comment,LXGW WenKai,34,&H0000A5FF,&H000000FF,&H00000000,&H00000000,-1,1,0,0,100,100,0,0,1,1,0,7,10,10,10,1
 
 [Events]
 Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
-Dialogue: 0,0:00:00.18,0:00:04.19,Default,,0,0,0,,Hello. I'm Dr. Michael Clarkson. Welcome to\N您好。我是Michael Clarkson博士。欢迎来到
-Dialogue: 0,0:00:04.19,0:00:08.03,Default,,0,0,0,,Functional Programming in OCaml. My main job\NOCaml函数式编程。我的主要工作是
-Dialogue: 0,0:00:08.03,0:00:11.03,Default,,0,0,0,,is teaching university students to write correct,\N在大学里教学生编写正确、高效且美观的程序。在过去几年中，我在康奈尔大学教授了大约3700名学生OCaml语言,
-Dialogue: 0,0:00:11.11,0:00:15.38,Default,,0,0,0,,efficient, and beautiful programs. In the last\N这门课程名为CS3110，《数据结构与函数式编程》。
-Dialogue: 0,0:00:15.38,0:00:19.32,Default,,0,0,0,,few years, I've taught OCaml to about 3 ,700\N您可能以各种方式遇到这个视频。也许您现在是CS3110的一名学生。也许您不是康奈尔的学生，但您想学习一些关于函数式编程的知识。也许
-Dialogue: 0,0:00:19.32,0:00:22.37,Default,,0,0,0,,students at Cornell University in a course\N您是从嵌入了此视频的在线教科书而来，或者也许您
-Dialogue: 0,0:00:22.37,0:00:26.44,Default,,0,0,0,,titled CS3110, Data Structures and Functional\Ntitled CS3110, Data Structures and Functional
-Dialogue: 0,0:00:26.44,0:00:26.98,Default,,0,0,0,,Programming.\NProgramming.
-Dialogue: 0,0:00:28.10,0:00:30.55,Default,,0,0,0,,You might have come across this video in any\NYou might have come across this video in any
-Dialogue: 0,0:00:30.55,0:00:33.34,Default,,0,0,0,,number of ways. Maybe you're actually a student\Nnumber of ways. Maybe you're actually a student
-Dialogue: 0,0:00:33.34,0:00:36.88,Default,,0,0,0,,in CS 3110 right now. Maybe you're not a\Nin CS 3110 right now. Maybe you're not a
-Dialogue: 0,0:00:36.88,0:00:38.46,Default,,0,0,0,,Cornell student, but you're looking to learn\NCornell student, but you're looking to learn
-Dialogue: 0,0:00:38.46,0:00:41.42,Default,,0,0,0,,something about functional programming. Maybe\Nsomething about functional programming. Maybe
-Dialogue: 0,0:00:41.42,0:00:43.35,Default,,0,0,0,,you came here from the online textbook in\Nyou came here from the online textbook in
-Dialogue: 0,0:00:43.35,0:00:45.57,Default,,0,0,0,,which this video is embedded, or maybe you\Nwhich this video is embedded, or maybe you
-Dialogue: 0,0:00:45.57,0:00:47.85,Default,,0,0,0,,found the video first. In which case, check\N找到了视频。如果是这种情况，请查看
-Dialogue: 0,0:00:47.85,0:00:49.67,Default,,0,0,0,,the comments below for the current link to\N下方的评论以获取当前教材链接。我已撰写该教材数年。
-Dialogue: 0,0:00:49.67,0:00:52.72,Default,,0,0,0,,the textbook. I've been writing the textbook\N它基于我自己和其他教员过去二十多年撰写的课程笔记。
-Dialogue: 0,0:00:52.72,0:00:55.28,Default,,0,0,0,,for a few years now. It's based on course\N除了教授函数式编程外，我们的目标一直是教会学生成为出色的程序员，
-Dialogue: 0,0:00:55.28,0:00:57.86,Default,,0,0,0,,notes written by myself and other faculty for\N让他们掌握超越基础计算机科学课程所需的知识、技能和习惯。
-Dialogue: 0,0:00:58.29,0:01:02.03,Default,,0,0,0,,over two decades. Beyond teaching functional\N然而，这些视频是新的。它们是因为疫情而产生的。在2020年至2021年学术年度期间,
-Dialogue: 0,0:01:02.03,0:01:05.31,Default,,0,0,0,,programming, our goal has long been to teach\N我开设了我课程的异步版本。
-Dialogue: 0,0:01:05.31,0:01:08.40,Default,,0,0,0,,students to be great programmers, to equip\Nstudents to be great programmers, to equip
-Dialogue: 0,0:01:08.40,0:01:11.31,Default,,0,0,0,,them with the knowledge, skills, and habits\Nthem with the knowledge, skills, and habits
-Dialogue: 0,0:01:11.31,0:01:14.20,Default,,0,0,0,,they need to be successful beyond the basics\Nthey need to be successful beyond the basics
-Dialogue: 0,0:01:14.20,0:01:16.93,Default,,0,0,0,,of the usual introductory computer science classes.\Nof the usual introductory computer science classes.
-Dialogue: 0,0:01:17.98,0:01:22.00,Default,,0,0,0,,These videos, however, are new. They came about\NThese videos, however, are new. They came about
-Dialogue: 0,0:01:22.00,0:01:26.43,Default,,0,0,0,,because of pandemic. In the 2020 through 2021\Nbecause of pandemic. In the 2020 through 2021
-Dialogue: 0,0:01:26.43,0:01:27.60,Default,,0,0,0,,academic  year,\Nacademic  year,
-Dialogue: 0,0:01:28.01,0:01:30.82,Default,,0,0,0,,I taught an asynchronous version of my class.\NI taught an asynchronous version of my class.
-Dialogue: 0,0:01:31.15,0:01:34.12,Default,,0,0,0,,That meant these videos had to replace the\N这意味着这些视频必须取代传统的面对面讲座。
-Dialogue: 0,0:01:34.12,0:01:38.46,Default,,0,0,0,,usual in -person lectures. So I ended up producing\N所以我最终制作了超过200个短片，大多数时长在5到6分钟。
-Dialogue: 0,0:01:38.46,0:01:41.87,Default,,0,0,0,,over 200 short videos, most around five to\N学生的反应几乎是完全积极的。
-Dialogue: 0,0:01:41.87,0:01:44.87,Default,,0,0,0,,six minutes in length. And the reaction from\N现在我将把这些视频公开给任何想要了解OCaml、函数式编程和成为更好程序员的人。
-Dialogue: 0,0:01:44.87,0:01:49.01,Default,,0,0,0,,students was overwhelmingly positive. So now\N希望你们发现它们有用，甚至有趣。
-Dialogue: 0,0:01:49.01,0:01:51.90,Default,,0,0,0,,I'm making the videos publicly available for\N这是我对所有经历Zoom U时期的学生的情书。
-Dialogue: 0,0:01:51.90,0:01:54.89,Default,,0,0,0,,anyone who wants to learn something about OCaml,\N我们共同做到了。现在，当我们传播函数式编程之光时，
-Dialogue: 0,0:01:55.03,0:01:57.73,Default,,0,0,0,,functional programming, and becoming a better\N也许世界会变得稍微好一点。
-Dialogue: 0,0:01:57.73,0:01:58.31,Default,,0,0,0,,programmer.\NThat meant these videos had to replace the usual in-person lectures.
-Dialogue: 0,0:01:59.43,0:02:02.67,Default,,0,0,0,,I hope you find them useful, maybe even entertaining.\NSo I ended up producing over 200 short videos, most around five to six minutes in length.
-Dialogue: 0,0:02:03.84,0:02:06.81,Default,,0,0,0,,They are a love letter for me to all the\NAnd the reaction from students was overwhelmingly positive.
-Dialogue: 0,0:02:06.81,0:02:09.25,Default,,0,0,0,,students who endured through the time of Zoom\NSo now I'm making the videos publicly available for anyone who wants to learn something about OCaml, functional programming, and becoming a better programmer.
-Dialogue: 0,0:02:09.25,0:02:14.87,Default,,0,0,0,,U. We did it together. And now, maybe the\NI hope you find them useful, maybe even entertaining.
-Dialogue: 0,0:02:14.87,0:02:18.47,Default,,0,0,0,,world can be just a bit better as we spread\NThey are a love letter for me to all the students who endured through the time of Zoom U.
-Dialogue: 0,0:02:18.47,0:02:20.37,Default,,0,0,0,,the  light  of  functional  programming.\NWe did it together. And now, maybe the world can be just a bit better as we spread the light of functional programming.
+Dialogue: 0,0:00:00.18,0:00:04.19,Default,,0,0,0,,Hello. I'm Dr. Michael Clarkson. Welcome to\N大家好。我是迈克尔·克拉克森博士。欢迎来到《OCaml函数式编程》。
+Dialogue: 0,0:00:04.19,0:00:08.03,Default,,0,0,0,,Functional Programming in OCaml. My main job\N大家好。我是迈克尔·克拉克森博士。欢迎来到《OCaml函数式编程》。
+Dialogue: 0,0:00:08.03,0:00:11.03,Default,,0,0,0,,is teaching university students to write correct,\N我的主要工作是教授大学生编写正确、高效且优美的程序。在过去的几年里，我在康奈尔大学教授了大约3700名学生。
+Dialogue: 0,0:00:11.11,0:00:15.38,Default,,0,0,0,,efficient, and beautiful programs. In the last\N我的主要工作是教授大学生编写正确、高效且优美的程序。在过去的几年里，我在康奈尔大学教授了大约3700名学生。
+Dialogue: 0,0:00:15.38,0:00:19.32,Default,,0,0,0,,few years, I've taught OCaml to about 3 ,700\N我的主要工作是教授大学生编写正确、高效且优美的程序。在过去的几年里，我在康奈尔大学教授了大约3700名学生。
+Dialogue: 0,0:00:19.32,0:00:22.37,Default,,0,0,0,,students at Cornell University in a course\N这门课程名为CS3110，《数据结构与函数式编程》。
+Dialogue: 0,0:00:22.37,0:00:26.44,Default,,0,0,0,,titled CS3110, Data Structures and Functional\N这门课程名为CS3110，《数据结构与函数式编程》。
+Dialogue: 0,0:00:26.44,0:00:26.98,Default,,0,0,0,,Programming.\N这门课程名为CS3110，《数据结构与函数式编程》。
+Dialogue: 0,0:00:28.10,0:00:30.55,Default,,0,0,0,,You might have come across this video in any\N你可能是以多种方式接触到这个视频的。也许你现在就是康奈尔大学CS3110课程的学生。也许你不是康奈尔学生，但你想学习一些函数式编程的知识。
+Dialogue: 0,0:00:30.55,0:00:33.34,Default,,0,0,0,,number of ways. Maybe you're actually a student\N你可能是以多种方式接触到这个视频的。也许你现在就是康奈尔大学CS3110课程的学生。也许你不是康奈尔学生，但你想学习一些函数式编程的知识。
+Dialogue: 0,0:00:33.34,0:00:36.88,Default,,0,0,0,,in CS 3110 right now. Maybe you're not a\N你可能是以多种方式接触到这个视频的。也许你现在就是康奈尔大学CS3110课程的学生。也许你不是康奈尔学生，但你想学习一些函数式编程的知识。
+Dialogue: 0,0:00:36.88,0:00:38.46,Default,,0,0,0,,Cornell student, but you're looking to learn\N你可能是以多种方式接触到这个视频的。也许你现在就是康奈尔大学CS3110课程的学生。也许你不是康奈尔学生，但你想学习一些函数式编程的知识。
+Dialogue: 0,0:00:38.46,0:00:41.42,Default,,0,0,0,,something about functional programming. Maybe\N你可能是以多种方式接触到这个视频的。也许你现在就是康奈尔大学CS3110课程的学生。也许你不是康奈尔学生，但你想学习一些函数式编程的知识。
+Dialogue: 0,0:00:41.42,0:00:43.35,Default,,0,0,0,,you came here from the online textbook in\N也许你是从嵌入了这段视频的在线教材中来的，或者只是单纯地想了解一些关于函数式编程的内容。
+Dialogue: 0,0:00:43.35,0:00:45.57,Default,,0,0,0,,which this video is embedded, or maybe you\N也许你是从嵌入了这段视频的在线教材中来的，或者只是单纯地想了解一些关于函数式编程的内容。
+Dialogue: 0,0:00:45.57,0:00:47.85,Default,,0,0,0,,found the video first. In which case, check\N我先找到了视频。在这种情况下，请查看下方评论以获取当前的链接到课本。
+Dialogue: 0,0:00:47.85,0:00:49.67,Default,,0,0,0,,the comments below for the current link to\N我先找到了视频。在这种情况下，请查看下方评论以获取当前的链接到课本。
+Dialogue: 0,0:00:49.67,0:00:52.72,Default,,0,0,0,,the textbook. I've been writing the textbook\N我一直都在编写这本教材，已有数年时间。它是基于我自己和其他教员过去二十多年撰写的课程笔记。
+Dialogue: 0,0:00:52.72,0:00:55.28,Default,,0,0,0,,for a few years now. It's based on course\N我一直都在编写这本教材，已有数年时间。它是基于我自己和其他教员过去二十多年撰写的课程笔记。
+Dialogue: 0,0:00:55.28,0:00:57.86,Default,,0,0,0,,notes written by myself and other faculty for\N我一直都在编写这本教材，已有数年时间。它是基于我自己和其他教员过去二十多年撰写的课程笔记。
+Dialogue: 0,0:00:58.29,0:01:02.03,Default,,0,0,0,,over two decades. Beyond teaching functional\N我们的目标不仅仅是教授函数式编程，还希望培养出优秀的程序员，让他们掌握成功所需的知识、技能和习惯，而不仅仅局限于基础的计算机科学入门课程。
+Dialogue: 0,0:01:02.03,0:01:05.31,Default,,0,0,0,,programming, our goal has long been to teach\N我们的目标不仅仅是教授函数式编程，还希望培养出优秀的程序员，让他们掌握成功所需的知识、技能和习惯，而不仅仅局限于基础的计算机科学入门课程。
+Dialogue: 0,0:01:05.31,0:01:08.40,Default,,0,0,0,,students to be great programmers, to equip\N我们的目标不仅仅是教授函数式编程，还希望培养出优秀的程序员，让他们掌握成功所需的知识、技能和习惯，而不仅仅局限于基础的计算机科学入门课程。
+Dialogue: 0,0:01:08.40,0:01:11.31,Default,,0,0,0,,them with the knowledge, skills, and habits\N我们的目标不仅仅是教授函数式编程，还希望培养出优秀的程序员，让他们掌握成功所需的知识、技能和习惯，而不仅仅局限于基础的计算机科学入门课程。
+Dialogue: 0,0:01:11.31,0:01:14.20,Default,,0,0,0,,they need to be successful beyond the basics\N我们的目标不仅仅是教授函数式编程，还希望培养出优秀的程序员，让他们掌握成功所需的知识、技能和习惯，而不仅仅局限于基础的计算机科学入门课程。
+Dialogue: 0,0:01:14.20,0:01:16.93,Default,,0,0,0,,of the usual introductory computer science classes.\N我们的目标不仅仅是教授函数式编程，还希望培养出优秀的程序员，让他们掌握成功所需的知识、技能和习惯，而不仅仅局限于基础的计算机科学入门课程。
+Dialogue: 0,0:01:17.98,0:01:22.00,Default,,0,0,0,,These videos, however, are new. They came about\N然而，这些视频是新的。它们是因为疫情才产生的。在2020年至2021年的学年里，我教授了这门课的异步版本。
+Dialogue: 0,0:01:22.00,0:01:26.43,Default,,0,0,0,,because of pandemic. In the 2020 through 2021\N然而，这些视频是新的。它们是因为疫情才产生的。在2020年至2021年的学年里，我教授了这门课的异步版本。
+Dialogue: 0,0:01:26.43,0:01:27.60,Default,,0,0,0,,academic  year,\N然而，这些视频是新的。它们是因为疫情才产生的。在2020年至2021年的学年里，我教授了这门课的异步版本。
+Dialogue: 0,0:01:28.01,0:01:30.82,Default,,0,0,0,,I taught an asynchronous version of my class.\N然而，这些视频是新的。它们是因为疫情才产生的。在2020年至2021年的学年里，我教授了这门课的异步版本。
+Dialogue: 0,0:01:31.15,0:01:34.12,Default,,0,0,0,,That meant these videos had to replace the\N这意味着这些视频必须替代传统的面对面讲座。因此我制作了超过200个短片，大多数时长在5到6分钟之间。
+Dialogue: 0,0:01:34.12,0:01:38.46,Default,,0,0,0,,usual in -person lectures. So I ended up producing\N这意味着这些视频必须替代传统的面对面讲座。因此我制作了超过200个短片，大多数时长在5到6分钟之间。
+Dialogue: 0,0:01:38.46,0:01:41.87,Default,,0,0,0,,over 200 short videos, most around five to\N学生的反应非常积极。现在，我将这些视频公开发布给任何想要了解OCaml、函数式编程以及成为更好程序员的人。
+Dialogue: 0,0:01:41.87,0:01:44.87,Default,,0,0,0,,six minutes in length. And the reaction from\N学生的反应非常积极。现在，我将这些视频公开发布给任何想要了解OCaml、函数式编程以及成为更好程序员的人。
+Dialogue: 0,0:01:44.87,0:01:49.01,Default,,0,0,0,,students was overwhelmingly positive. So now\N他们的反馈让我感到非常欣慰。我希望你发现它们有用，甚至有趣。它们是我对所有在Zoom U时期坚持下来的同学们的爱的告白。我们共同度过了那段时光。现在，当我们传播函数式编程之光时，也许世界会变得更好一些。
+Dialogue: 0,0:01:49.01,0:01:51.90,Default,,0,0,0,,I'm making the videos publicly available for\N他们的反馈让我感到非常欣慰。我希望你发现它们有用，甚至有趣。它们是我对所有在Zoom U时期坚持下来的同学们的爱的告白。我们共同度过了那段时光。现在，当我们传播函数式编程之光时，也许世界会变得更好一些。
+Dialogue: 0,0:01:51.90,0:01:54.89,Default,,0,0,0,,anyone who wants to learn something about OCaml,\N他们的反馈让我感到非常欣慰。我希望你发现它们有用，甚至有趣。它们是我对所有在Zoom U时期坚持下来的同学们的爱的告白。我们共同度过了那段时光。现在，当我们传播函数式编程之光时，也许世界会变得更好一些。
+Dialogue: 0,0:01:55.03,0:01:57.73,Default,,0,0,0,,functional programming, and becoming a better\N他们的反馈让我感到非常欣慰。我希望你发现它们有用，甚至有趣。它们是我对所有在Zoom U时期坚持下来的同学们的爱的告白。我们共同度过了那段时光。现在，当我们传播函数式编程之光时，也许世界会变得更好一些。
+Dialogue: 0,0:01:57.73,0:01:58.31,Default,,0,0,0,,programmer.\N他们的反馈让我感到非常欣慰。我希望你发现它们有用，甚至有趣。它们是我对所有在Zoom U时期坚持下来的同学们的爱的告白。我们共同度过了那段时光。现在，当我们传播函数式编程之光时，也许世界会变得更好一些。
+Dialogue: 0,0:01:59.43,0:02:02.67,Default,,0,0,0,,I hope you find them useful, maybe even entertaining.\N希望你发现它们有用，甚至有趣。
+Dialogue: 0,0:02:03.84,0:02:06.81,Default,,0,0,0,,They are a love letter for me to all the\NThey are a love letter for me to all the
+Dialogue: 0,0:02:06.81,0:02:09.25,Default,,0,0,0,,students who endured through the time of Zoom\Nstudents who endured through the time of Zoom
+Dialogue: 0,0:02:09.25,0:02:14.87,Default,,0,0,0,,U. We did it together. And now, maybe the\NU. We did it together. And now, maybe the
+Dialogue: 0,0:02:14.87,0:02:18.47,Default,,0,0,0,,world can be just a bit better as we spread\Nworld can be just a bit better as we spread
+Dialogue: 0,0:02:18.47,0:02:20.37,Default,,0,0,0,,the  light  of  functional  programming.\Nthe  light  of  functional  programming.

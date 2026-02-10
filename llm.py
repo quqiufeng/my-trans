@@ -37,7 +37,7 @@ def format_elapsed(seconds):
         return f"{seconds//3600}小时{(seconds%3600)//60}分"
 
 def parse_translations(content, expected_count):
-    """解析翻译结果，支持多种格式，确保顺序正确"""
+    """解析翻译结果，返回 original_index -> translation 的映射"""
     content_clean = content.strip()
     if content_clean.startswith('```'):
         content_clean = content_clean[content_clean.find('\n')+1:]
@@ -45,20 +45,20 @@ def parse_translations(content, expected_count):
         content_clean = content_clean[:content_clean.rfind('```')]
     content_clean = content_clean.strip()
 
-    translations = []
+    mapping = {}
 
     try:
         parsed = json.loads(content_clean)
-        if isinstance(parsed, list) and len(parsed) > 0:
-            first = parsed[0]
-            if isinstance(first, dict) and 'index' in first and 'translation' in first:
-                parsed_sorted = sorted(parsed, key=lambda x: x.get('index', 0))
-                translations = [item.get('translation', '') for item in parsed_sorted]
-                print(f"    带序号JSON解析成功: {len(translations)} 条 (已排序)")
-                return translations
-            else:
-                print(f"    JSON解析成功: {len(parsed)} 条")
-                return parsed
+        if isinstance(parsed, list):
+            for item in parsed:
+                if isinstance(item, dict):
+                    indices = item.get('original_indices', [])
+                    trans = item.get('translation', '')
+                    for idx in indices:
+                        mapping[idx] = trans
+            if mapping:
+                print(f"    解析成功: {len(mapping)} 条映射")
+                return mapping
     except json.JSONDecodeError:
         pass
 
@@ -68,45 +68,29 @@ def parse_translations(content, expected_count):
         if start >= 0 and end > start:
             json_str = content_clean[start:end]
             parsed = json.loads(json_str)
-            if isinstance(parsed, list) and len(parsed) > 0:
-                first = parsed[0]
-                if isinstance(first, dict) and 'index' in first and 'translation' in first:
-                    parsed_sorted = sorted(parsed, key=lambda x: x.get('index', 0))
-                    translations = [item.get('translation', '') for item in parsed_sorted]
-                    print(f"    提取带序号JSON成功: {len(translations)} 条 (已排序)")
-                    return translations
-                else:
-                    print(f"    提取JSON成功: {len(parsed)} 条")
-                    return parsed
+            if isinstance(parsed, list):
+                for item in parsed:
+                    if isinstance(item, dict):
+                        indices = item.get('original_indices', [])
+                        trans = item.get('translation', '')
+                        for idx in indices:
+                            mapping[idx] = trans
+                if mapping:
+                    print(f"    提取成功: {len(mapping)} 条映射")
+                    return mapping
     except:
         pass
 
-    matches = re.findall(r'"translation"\s*:\s*"([^"]+)"', content)
-    if matches:
-        print(f"    正则提取translation成功: {len(matches)} 条")
-        return matches
-
-    lines = []
-    for line in content.split('\n'):
-        line = line.strip()
-        if not line:
-            continue
-        match = re.match(r'^[\d]+[\.\)]\s*(.+)', line)
-        if match:
-            lines.append(match.group(1))
-        elif line and not line.startswith('[') and not line.startswith('{') and len(line) > 3:
-            lines.append(line)
-
-    print(f"    逐行解析: {len(lines)} 条")
-    return lines
+    print(f"    解析失败，返回空映射")
+    return mapping
 
 def translate_batch(blocks, source_lang='eng', target_lang='zh'):
     """翻译字幕 - 分批确保完整"""
     texts = [b['text'] for b in blocks]
     total = len(texts)
     
-    # 每批 1 条，彻底避免合并
-    BATCH_SIZE = 1
+    # 每批 15 条，带上下文翻译
+    BATCH_SIZE = 15
     all_translations = []
     
     for batch_start in range(0, total, BATCH_SIZE):
@@ -119,32 +103,32 @@ def translate_batch(blocks, source_lang='eng', target_lang='zh'):
         
         prompt = f"""请将以下{source_lang}字幕翻译成{target_lang}。
 
-【强制要求】
-1. **逐条翻译，禁止合并！** 每条原文必须单独翻译成一条译文
-2. **禁止省略！** 输入{len(batch_texts)}条必须输出{len(batch_texts)}条
-3. **禁止跨句！** 不能把两条原文合并成一条翻译
-4. 每条翻译必须只对应一条原文，序号必须一一对应
+【翻译策略】
+- **可以合并多条原文一起翻译**，让翻译更自然流畅
+- 也可以单独翻译，每条原文独立翻译
 
-【翻译要求】
-- 简洁明了，适合字幕显示
-- 专有名词首次出现时标注原文
-- 保持原意和说话语气
+【输出格式】
+请返回JSON数组，每个元素表示一组翻译：
 
-请严格按以下 JSON 格式输出（index 必须与原文序号对应）：
 [
-  {{"index": 1, "translation": "译文1"}},
-  {{"index": 2, "translation": "译文2"}},
-  ...
+  {{"original_indices": [1, 2], "translation": "合并翻译1"}},
+  {{"original_indices": [3], "translation": "单独翻译2"}},
+  {{"original_indices": [4, 5], "translation": "合并翻译3"}}
 ]
+
+说明：
+1. original_indices 是数组，表示这组翻译对应哪些原文序号
+2. 可以合并多条原文（如 [1, 2] 表示原文第1和第2条合并翻译）
+3. **必须覆盖所有原文**，不能遗漏
+4. 简洁明了，适合字幕显示
+5. 专有名词首次出现时标注原文
+6. 保持原意和说话语气
 
 原文列表：
 """
         for i, text in enumerate(batch_texts):
             prompt += f'{i+1}. "{text}"\n'
 
-        prompt += f"""
-共{len(batch_texts)}条，**必须返回{len(batch_texts)}条翻译**，每条必须有正确的 index！"""
-        
         prompt += f"""
 
 直接输出 JSON 数组，不要其他内容："""
@@ -164,16 +148,18 @@ def translate_batch(blocks, source_lang='eng', target_lang='zh'):
             
             print(f"    LLM返回: {len(content)} 字符")
             
-            # 解析翻译结果
-            translations_batch = parse_translations(content, len(batch_texts))
+            mapping = parse_translations(content, len(batch_texts))
             
-            # 确保数量匹配
-            while len(translations_batch) < len(batch_texts):
-                translations_batch.append(batch_texts[len(translations_batch)])
-            translations_batch = translations_batch[:len(batch_texts)]
+            # 根据映射填充翻译列表
+            batch_translations = []
+            for i in range(1, len(batch_texts) + 1):
+                if i in mapping:
+                    batch_translations.append(mapping[i])
+                else:
+                    batch_translations.append(batch_texts[i-1])
             
-            all_translations.extend(translations_batch)
-            print(f"    批次 {batch_num}: {len(translations_batch)}/{len(batch_texts)} 条")
+            all_translations.extend(batch_translations)
+            print(f"    批次 {batch_num}: {len(batch_translations)}/{len(batch_texts)} 条")
             
         except Exception as e:
             print(f"    批次 {batch_num} 错误: {e}")
