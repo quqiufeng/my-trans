@@ -43,35 +43,70 @@ def format_elapsed(seconds):
         return f"{seconds//3600}小时{(seconds%3600)//60}分"
 
 def translate_batch(blocks, source_lang='eng', target_lang='zh'):
-    """批量翻译字幕"""
-    # 提取所有文本
+    """批量翻译字幕 - 分批处理确保翻译完整"""
     texts = [b['text'] for b in blocks]
+    total = len(texts)
     
-    prompt = f"""请将以下{source_lang}字幕翻译成{target_lang}。
+    # 分批翻译，每批 30 条（确保不超过 token 限制）
+    BATCH_SIZE = 30
+    all_translations = []
+    
+    for batch_start in range(0, total, BATCH_SIZE):
+        batch_end = min(batch_start + BATCH_SIZE, total)
+        batch_texts = texts[batch_start:batch_end]
+        
+        prompt = f"""请将以下{source_lang}字幕翻译成{target_lang}。
 
 要求：
 1. 简洁明了，适合字幕显示
 2. 专有名词首次出现时标注原文，如：Transformer（转换器）
 3. 保持原意和说话语气
-4. **严格按照序号输出，一行一个翻译，不要包含原文**
+4. **严格按照序号输出，只输出翻译**
 
-请严格按以下格式输出（只输出翻译，不要任何其他内容）：
-1. 翻译内容1
-2. 翻译内容2
-3. 翻译内容3
-...
-
-以下是字幕内容（共{len(texts)}条）：
+请严格按以下格式输出（共{len(batch_texts)}条）：
 """
-    for i, text in enumerate(texts):
-        prompt += f"{i+1}. {text}\n"
+        for i, text in enumerate(batch_texts):
+            prompt += f"{i+1}. {text}\n"
+        prompt += f"\n翻译（只输出{len(batch_texts)}行翻译，不要序号前缀）：\n"
+        for i in range(len(batch_texts)):
+            prompt += f"{i+1}. "
 
-    payload = {
-        "model": MODEL,
-        "messages": [{"role": "user", "content": prompt}],
-        "max_tokens": 4096,
-        "temperature": 0.1  # 降低温度，提高一致性
-    }
+        payload = {
+            "model": MODEL,
+            "messages": [{"role": "user", "content": prompt}],
+            "max_tokens": 8192,
+            "temperature": 0.1
+        }
+
+        try:
+            response = requests.post(f"{LLMS_HOST}/chat/completions", json=payload, timeout=300)
+            response.raise_for_status()
+            result = response.json()
+            content = result["choices"][0]["message"]["content"].strip()
+            
+            # 解析这批翻译
+            batch_translations = []
+            for line in content.split('\n'):
+                line = line.strip()
+                if not line:
+                    continue
+                # 移除序号
+                match = re.match(r'^[\d]+[\.\)]\s*(.+)', line)
+                if match:
+                    batch_translations.append(match.group(1))
+                elif len(line) > 3:  # 可能是没有序号的翻译
+                    batch_translations.append(line)
+            
+            all_translations.extend(batch_translations)
+            
+            batch_num = batch_start // BATCH_SIZE + 1
+            print(f"  批次 {batch_num}/{(total + BATCH_SIZE - 1) // BATCH_SIZE}: {len(batch_translations)} 条翻译")
+            
+        except Exception as e:
+            print(f"批次 {batch_start // BATCH_SIZE + 1} 翻译错误: {e}")
+            all_translations.extend([None] * len(batch_texts))
+    
+    return all_translations
 
     try:
         response = requests.post(f"{LLMS_HOST}/chat/completions", json=payload, timeout=300)
