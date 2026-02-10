@@ -260,9 +260,24 @@ def translate_ass(ass_path, source_lang='eng'):
     # 检查翻译成功率
     success_count = sum(1 for t in translations if t is not None)
     print(f"成功翻译: {success_count}/{len(blocks)} ({success_count*100//len(blocks)}%)")
+
+    # 生成双语字幕（与视频同名）
+    # 查找对应的视频文件，获取视频文件名
+    video_name = None
+    video_exts = ['.mp4', '.mkv', '.avi', '.mov', '.flv', '.wmv', '.m4v']
+    for ext in video_exts:
+        potential_video = ass_path.parent / (ass_path.stem.replace('_en', '') + ext)
+        if potential_video.exists():
+            video_name = potential_video.stem
+            break
     
-    # 生成双语字幕
-    output_path = ass_path.parent / f"{ass_path.stem}_llm.ass"
+    if video_name:
+        # 使用视频文件名作为输出名
+        output_path = ass_path.parent / f"{video_name}.ass"
+    else:
+        # 如果没有找到视频，使用原文件名
+        output_path = ass_path.parent / f"{ass_path.stem}.ass"
+    
     ass_content = create_bilingual_ass(blocks, translations, original_content)
     
     with open(output_path, 'w', encoding='utf-8-sig') as f:
