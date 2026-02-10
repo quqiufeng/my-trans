@@ -16,19 +16,54 @@ AI-powered video subtitle generation and translation tool. Supports automatic la
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│  视频.mp4                                                        │
+│  步骤 0：yt-dlp      →  下载 YouTube 视频                        │
 │      ↓                                                           │
-│  1. transcribe.py  →  生成英文字幕 (Whisper)                     │
+│  步骤 1：transcribe.py →  生成英文字幕 (Whisper)                 │
 │      ↓                                                           │
-│  2. 人工校对英文   →  修正识别错误、专有名词                      │
+│  步骤 2：人工校对    →  修正识别错误、专有名词                    │
 │      ↓                                                           │
-│  3. llm.py        →  窗口滑动翻译成中文                          │
+│  步骤 3：llm.py      →  窗口滑动翻译成中文                       │
 │      ↓                                                           │
-│  4. 视频名.ass    →  精准双语字幕 (对齐时间轴)                   │
+│  输出：视频名.ass   →  精准双语字幕 (对齐时间轴)                 │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
 ### 步骤详解
+
+#### 步骤 0：下载 YouTube 视频
+
+使用 **yt-dlp** 下载高质量视频素材。
+
+```bash
+# 下载最高质量视频
+yt-dlp -f "bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best" "https://www.youtube.com/watch?v=..."
+
+# 下载视频 + 自动字幕
+yt-dlp --write-subs --sub-langs "en" "URL"
+
+# 下载整个播放列表
+yt-dlp -cit "https://www.youtube.com/playlist?list=PL..."
+
+# 仅下载音频（适合播客）
+yt-dlp -x --audio-format mp3 "URL"
+```
+
+**常用选项**：
+
+| 选项 | 说明 |
+|------|------|
+| `-f best` | 最佳质量 |
+| `-o "%(title)s.%(ext)s"` | 自定义文件名 |
+| `--cookies frombrowser` | 使用浏览器 cookies |
+| `-v` | 详细输出 |
+
+**输出示例**：
+```
+$ yt-dlp "https://www.youtube.com/watch?v=abc123"
+[youtube] abc123: Downloading webpage
+[youtube] abc123: Downloading player 0f3f2b0
+[download] Destination: OCaml Tutorial Part 1 - Getting Started.mp4
+```
 
 #### 步骤 1：生成英文字幕
 
