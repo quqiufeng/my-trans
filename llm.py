@@ -107,29 +107,52 @@ def translate_batch(blocks, source_lang='eng', target_lang='zh'):
             print(content)
             print(f"{'-'*60}\n")
             
-            # 解析 JSON
+            # 解析 JSON - 更健壮的解析
             import json
             translations_batch = []
             try:
-                # 清理可能的代码块标记
-                content_clean = content
+                # 清理代码块标记
+                content_clean = content.strip()
                 if content_clean.startswith('```'):
-                    lines = content_clean.split('\n')
-                    if lines[0].startswith('```'):
-                        lines = lines[1:]
-                    if lines and lines[-1].startswith('```'):
-                        lines = lines[:-1]
-                    content_clean = '\n'.join(lines)
+                    content_clean = content_clean[content_clean.find('\n')+1:]
+                if content_clean.endswith('```'):
+                    content_clean = content_clean[:content_clean.rfind('```')]
+                content_clean = content_clean.strip()
                 
-                translations_batch = json.loads(content_clean)
+                # 尝试直接解析
+                try:
+                    translations_batch = json.loads(content_clean)
+                except json.JSONDecodeError:
+                    # 如果失败，尝试提取 [...] 部分
+                    start = content_clean.find('[')
+                    end = content_clean.rfind(']') + 1
+                    if start >= 0 and end > start:
+                        json_str = content_clean[start:end]
+                        translations_batch = json.loads(json_str)
                 
                 # 确保是列表
                 if not isinstance(translations_batch, list):
                     translations_batch = []
                     
-            except json.JSONDecodeError as e:
+            except Exception as e:
                 print(f"    JSON 解析错误: {e}")
                 translations_batch = []
+            
+            # 如果解析失败，尝试逐行解析作为备选
+            if not translations_batch or len(translations_batch) != len(batch_texts):
+                print(f"    JSON解析结果不完整，尝试逐行解析...")
+                batch_translations = []
+                for line in content.split('\n'):
+                    line = line.strip()
+                    if not line:
+                        continue
+                    # 匹配 "翻译内容" 或 "1. 翻译内容"
+                    match = re.match(r'^[\d]+\.\s*(.+)', line)
+                    if match:
+                        batch_translations.append(match.group(1))
+                    elif line and not line.startswith('[') and not line.startswith('{'):
+                        batch_translations.append(line)
+                translations_batch = batch_translations
             
             # 如果解析不完整，用原文填充
             while len(translations_batch) < len(batch_texts):
