@@ -65,14 +65,19 @@ def translate_batch(blocks, source_lang='eng', target_lang='zh'):
 1. 简洁明了，适合字幕显示
 2. 专有名词首次出现时标注原文，如：Transformer（转换器）
 3. 保持原意和说话语气
-4. **必须全部翻译完，不能遗漏**
+4. **必须全部翻译完，一行一个，不能遗漏任何一条**
 
-请严格按以下格式输出（共{len(batch_texts)}条）：
+共{len(batch_texts)}条字幕，序号从1到{len(batch_texts)}：
+
 """
         for i, text in enumerate(batch_texts):
             prompt += f"{i+1}. {text}\n"
         
-        prompt += f"\n翻译（输出{len(batch_texts)}行，必须全部翻译完）：\n"
+        prompt += f"""
+
+翻译（共{len(batch_texts)}条，必须全部翻译完，格式：序号. 翻译内容）：
+
+"""
 
         payload = {
             "model": MODEL,
@@ -81,11 +86,24 @@ def translate_batch(blocks, source_lang='eng', target_lang='zh'):
             "temperature": 0.1
         }
 
+        # 调试：打印发送给 LLM 的内容
+        print(f"\n{'='*60}")
+        print(f"[调试] 发送给 LLM 的提示词 ({len(prompt)} 字符):")
+        print(f"{'='*60}")
+        print(prompt)
+        print(f"{'='*60}\n")
+
         try:
             response = requests.post(f"{LLMS_HOST}/chat/completions", json=payload, timeout=300)
             response.raise_for_status()
             result = response.json()
             content = result["choices"][0]["message"]["content"].strip()
+            
+            # 调试：打印 LLM 返回的内容
+            print(f"[调试] LLM 返回 ({len(content)} 字符):")
+            print(f"{'-'*60}")
+            print(content)
+            print(f"{'-'*60}\n")
             
             # 解析翻译结果
             batch_translations = []
