@@ -38,45 +38,54 @@ def format_elapsed(seconds):
 
 def parse_translations(content, expected_count):
     """解析翻译结果，支持多种格式，确保顺序正确"""
-    # 清理代码块标记
     content_clean = content.strip()
     if content_clean.startswith('```'):
         content_clean = content_clean[content_clean.find('\n')+1:]
     if content_clean.endswith('```'):
         content_clean = content_clean[:content_clean.rfind('```')]
     content_clean = content_clean.strip()
-    
+
     translations = []
-    
-    # 方法1: 尝试直接解析 JSON
+
     try:
-        translations = json.loads(content_clean)
-        if isinstance(translations, list) and len(translations) > 0:
-            print(f"    JSON解析成功: {len(translations)} 条")
-            return translations
+        parsed = json.loads(content_clean)
+        if isinstance(parsed, list) and len(parsed) > 0:
+            first = parsed[0]
+            if isinstance(first, dict) and 'index' in first and 'translation' in first:
+                parsed_sorted = sorted(parsed, key=lambda x: x.get('index', 0))
+                translations = [item.get('translation', '') for item in parsed_sorted]
+                print(f"    带序号JSON解析成功: {len(translations)} 条 (已排序)")
+                return translations
+            else:
+                print(f"    JSON解析成功: {len(parsed)} 条")
+                return parsed
     except json.JSONDecodeError:
         pass
-    
-    # 方法2: 提取 [...] 部分
+
     try:
         start = content_clean.find('[')
         end = content_clean.rfind(']') + 1
         if start >= 0 and end > start:
             json_str = content_clean[start:end]
-            translations = json.loads(json_str)
-            if isinstance(translations, list) and len(translations) > 0:
-                print(f"    提取JSON成功: {len(translations)} 条")
-                return translations
+            parsed = json.loads(json_str)
+            if isinstance(parsed, list) and len(parsed) > 0:
+                first = parsed[0]
+                if isinstance(first, dict) and 'index' in first and 'translation' in first:
+                    parsed_sorted = sorted(parsed, key=lambda x: x.get('index', 0))
+                    translations = [item.get('translation', '') for item in parsed_sorted]
+                    print(f"    提取带序号JSON成功: {len(translations)} 条 (已排序)")
+                    return translations
+                else:
+                    print(f"    提取JSON成功: {len(parsed)} 条")
+                    return parsed
     except:
         pass
-    
-    # 方法3: 用正则提取所有 "xxx" 内容
-    matches = re.findall(r'"([^"]+)"', content)
+
+    matches = re.findall(r'"translation"\s*:\s*"([^"]+)"', content)
     if matches:
-        print(f"    正则提取成功: {len(matches)} 条")
+        print(f"    正则提取translation成功: {len(matches)} 条")
         return matches
-    
-    # 方法4: 逐行解析
+
     lines = []
     for line in content.split('\n'):
         line = line.strip()
@@ -87,7 +96,7 @@ def parse_translations(content, expected_count):
             lines.append(match.group(1))
         elif line and not line.startswith('[') and not line.startswith('{') and len(line) > 3:
             lines.append(line)
-    
+
     print(f"    逐行解析: {len(lines)} 条")
     return lines
 
@@ -96,8 +105,8 @@ def translate_batch(blocks, source_lang='eng', target_lang='zh'):
     texts = [b['text'] for b in blocks]
     total = len(texts)
     
-    # 每批 15 条
-    BATCH_SIZE = 15
+    # 每批 1 条，彻底避免合并
+    BATCH_SIZE = 1
     all_translations = []
     
     for batch_start in range(0, total, BATCH_SIZE):
@@ -110,19 +119,31 @@ def translate_batch(blocks, source_lang='eng', target_lang='zh'):
         
         prompt = f"""请将以下{source_lang}字幕翻译成{target_lang}。
 
-要求：
-1. 简洁明了，适合字幕显示
-2. 专有名词首次出现时标注原文
-3. 保持原意和说话语气
-4. **绝对不能合并！输入{len(batch_texts)}条就必须输出{len(batch_texts)}条！**
-5. **保留原句断句位置，不能跨句合并！**
+【强制要求】
+1. **逐条翻译，禁止合并！** 每条原文必须单独翻译成一条译文
+2. **禁止省略！** 输入{len(batch_texts)}条必须输出{len(batch_texts)}条
+3. **禁止跨句！** 不能把两条原文合并成一条翻译
+4. 每条翻译必须只对应一条原文，序号必须一一对应
 
-共{len(batch_texts)}条字幕，**必须输出{len(batch_texts)}条翻译**！
+【翻译要求】
+- 简洁明了，适合字幕显示
+- 专有名词首次出现时标注原文
+- 保持原意和说话语气
 
-请输出 JSON 数组：
+请严格按以下 JSON 格式输出（index 必须与原文序号对应）：
+[
+  {{"index": 1, "translation": "译文1"}},
+  {{"index": 2, "translation": "译文2"}},
+  ...
+]
+
+原文列表：
 """
         for i, text in enumerate(batch_texts):
-            prompt += f'"{text}"\n'
+            prompt += f'{i+1}. "{text}"\n'
+
+        prompt += f"""
+共{len(batch_texts)}条，**必须返回{len(batch_texts)}条翻译**，每条必须有正确的 index！"""
         
         prompt += f"""
 
