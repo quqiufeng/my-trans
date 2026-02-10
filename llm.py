@@ -43,7 +43,7 @@ def format_elapsed(seconds):
         return f"{seconds//3600}小时{(seconds%3600)//60}分"
 
 def translate_batch(blocks, source_lang='eng', target_lang='zh'):
-    """翻译字幕 - 分批确保完整"""
+    """翻译字幕 - 分批确保完整，JSON格式防合并"""
     texts = [b['text'] for b in blocks]
     total = len(texts)
     
@@ -65,36 +65,34 @@ def translate_batch(blocks, source_lang='eng', target_lang='zh'):
 1. 简洁明了，适合字幕显示
 2. 专有名词首次出现时标注原文，如：Transformer（转换器）
 3. 保持原意和说话语气
-4. **重要：必须逐条翻译，输入多少条就输出多少条，一条对应一条，不能合并！**
+4. **重要：必须逐条翻译，一条对应一条，完全匹配！**
 
-共{len(batch_texts)}条字幕，**必须输出{len(batch_texts)}条翻译**，序号必须对应：
+请严格按 JSON 数组格式输出（每个元素对应一条翻译）：
+
+["翻译1", "翻译2", "翻译3", ...]
+
+共{len(batch_texts)}条字幕，输出{len(batch_texts)}个翻译：
 
 """
         for i, text in enumerate(batch_texts):
-            prompt += f"[{i+1}] {text}\n"
+            prompt += f'"{text}"\n'
         
         prompt += f"""
 
-请输出 {len(batch_texts)} 行翻译（严格按以下格式）：
-
-"""
-
-        # 预先填充序号格式，让 LLM 填空
-        for i in range(len(batch_texts)):
-            prompt += f"{i+1}. "
+请直接输出 JSON 数组，不要其他内容："""
 
         payload = {
             "model": MODEL,
             "messages": [{"role": "user", "content": prompt}],
-            "max_tokens": 32768,  # 本地大显存，给大一点
+            "max_tokens": 32768,
             "temperature": 0.1
         }
 
         # 调试：打印发送给 LLM 的内容
         print(f"\n{'='*60}")
-        print(f"[调试] 发送给 LLM 的提示词 ({len(prompt)} 字符):")
+        print(f"[调试] 发送给 LLM ({len(prompt)} 字符)")
         print(f"{'='*60}")
-        print(prompt)
+        print(prompt[:500] + "..." if len(prompt) > 500 else prompt)
         print(f"{'='*60}\n")
 
         try:
@@ -109,28 +107,36 @@ def translate_batch(blocks, source_lang='eng', target_lang='zh'):
             print(content)
             print(f"{'-'*60}\n")
             
-            # 解析翻译结果
-            batch_translations = []
-            for line in content.split('\n'):
-                line = line.strip()
-                if not line:
-                    continue
-                match = re.match(r'^(\d+)[\.\)]\s*(.+)', line)
-                if match:
-                    try:
-                        idx = int(match.group(1)) - 1
-                        if 0 <= idx < len(batch_texts):
-                            batch_translations.append((idx, match.group(2).strip()))
-                    except ValueError:
-                        pass
-            
-            # 按序号排序并提取翻译
-            batch_translations.sort(key=lambda x: x[0])
-            translations_batch = [t[1] for t in batch_translations]
+            # 解析 JSON
+            import json
+            translations_batch = []
+            try:
+                # 清理可能的代码块标记
+                content_clean = content
+                if content_clean.startswith('```'):
+                    lines = content_clean.split('\n')
+                    if lines[0].startswith('```'):
+                        lines = lines[1:]
+                    if lines and lines[-1].startswith('```'):
+                        lines = lines[:-1]
+                    content_clean = '\n'.join(lines)
+                
+                translations_batch = json.loads(content_clean)
+                
+                # 确保是列表
+                if not isinstance(translations_batch, list):
+                    translations_batch = []
+                    
+            except json.JSONDecodeError as e:
+                print(f"    JSON 解析错误: {e}")
+                translations_batch = []
             
             # 如果解析不完整，用原文填充
             while len(translations_batch) < len(batch_texts):
                 translations_batch.append(batch_texts[len(translations_batch)])
+            
+            # 如果解析超出，截断
+            translations_batch = translations_batch[:len(batch_texts)]
             
             all_translations.extend(translations_batch)
             
@@ -142,15 +148,6 @@ def translate_batch(blocks, source_lang='eng', target_lang='zh'):
     
     return all_translations
 
-    try:
-        response = requests.post(f"{LLMS_HOST}/chat/completions", json=payload, timeout=300)
-        response.raise_for_status()
-        result = response.json()
-        content = result["choices"][0]["message"]["content"].strip()
-        return content
-    except Exception as e:
-        print(f"翻译错误: {e}")
-        return None
 
 def parse_ass(ass_path):
     """解析 ASS 文件"""
