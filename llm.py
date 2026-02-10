@@ -77,7 +77,7 @@ def translate_batch(blocks, source_lang='eng', target_lang='zh'):
         payload = {
             "model": MODEL,
             "messages": [{"role": "user", "content": prompt}],
-            "max_tokens": max(4096, len(batch_texts) * 100),
+            "max_tokens": 32768,  # 本地大显存，给大一点
             "temperature": 0.1
         }
 
