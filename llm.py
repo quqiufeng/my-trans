@@ -50,15 +50,18 @@ def translate_batch(blocks, source_lang='eng', target_lang='zh'):
     prompt = f"""请将以下{source_lang}字幕翻译成{target_lang}。
 
 要求：
-1. 简洁明了，适合字幕显示（每行尽量短）
+1. 简洁明了，适合字幕显示
 2. 专有名词首次出现时标注原文，如：Transformer（转换器）
 3. 保持原意和说话语气
-4. 不要添加额外解释
+4. **严格按照序号输出，一行一个翻译，不要包含原文**
 
-请按以下格式输出（每行一条）：
-原文|翻译
+请严格按以下格式输出（只输出翻译，不要任何其他内容）：
+1. 翻译内容1
+2. 翻译内容2
+3. 翻译内容3
+...
 
-以下是字幕内容：
+以下是字幕内容（共{len(texts)}条）：
 """
     for i, text in enumerate(texts):
         prompt += f"{i+1}. {text}\n"
@@ -67,7 +70,7 @@ def translate_batch(blocks, source_lang='eng', target_lang='zh'):
         "model": MODEL,
         "messages": [{"role": "user", "content": prompt}],
         "max_tokens": 4096,
-        "temperature": 0.3
+        "temperature": 0.1  # 降低温度，提高一致性
     }
 
     try:
@@ -113,62 +116,40 @@ def parse_ass(ass_path):
     return blocks
 
 def parse_translations(content, total_count):
-    """解析翻译结果"""
+    """解析翻译结果 - 严格按序号匹配"""
     translations = [None] * total_count
     
     # 移除代码块标记
     content = content.strip()
     lines = content.split('\n')
-    clean_lines = []
+    
     for line in lines:
         line = line.strip()
+        if not line:
+            continue
+        
         # 移除 ``` 标记
         if line.startswith('```'):
             continue
-        # 移除行号如 "1." "2."
-        line = re.sub(r'^[\d]+\.?\s*', '', line)
-        if line:
-            clean_lines.append(line)
-    
-    # 逐行解析 | 分隔的翻译
-    for line in clean_lines:
-        if '|' not in line:
-            continue
         
-        parts = line.split('|', 1)
-        if len(parts) != 2:
-            continue
-        
-        original = parts[0].strip()
-        translated = parts[1].strip()
-        
-        # 如果原文部分包含序号（如 "1. Hello"），尝试提取
-        orig_parts = original.split(None, 1)
-        if len(orig_parts) == 2 and orig_parts[0].isdigit():
-            # 左边是序号，右边是原文片段
-            # 这种情况说明翻译结果是 "序号 原文片段|翻译"
-            # 我们需要找到对应索引
+        # 匹配 "1. 翻译内容" 格式
+        match = re.match(r'^(\d+)[\.\)]\s*(.+)', line)
+        if match:
             try:
-                idx = int(orig_parts[0]) - 1
+                idx = int(match.group(1)) - 1
+                translation = match.group(2).strip()
                 if 0 <= idx < total_count:
-                    translations[idx] = translated
+                    translations[idx] = translation
             except ValueError:
                 pass
-        elif original.isdigit():
-            # 左边是纯数字（序号）
-            try:
-                idx = int(original) - 1
-                if 0 <= idx < total_count:
-                    translations[idx] = translated
-            except ValueError:
-                pass
-        else:
-            # 可能是原文太长，直接取翻译部分
-            # 这种情况通常是模型没有严格按照格式输出
-            # 尝试自动分配
+            continue
+        
+        # 如果没有序号，且是纯翻译（没有数字开头）
+        if not line[0:1].isdigit() and '|' not in line:
+            # 自动分配给第一个未翻译的条目
             for i in range(total_count):
                 if translations[i] is None:
-                    translations[i] = translated
+                    translations[i] = line
                     break
     
     return translations
