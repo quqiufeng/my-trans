@@ -254,7 +254,7 @@ bash translate.sh --lang=ja video_en.ass
 bash translate.sh
 ```
 
-输出: `video.ass`（双语，名字去掉 `_en`）
+输出: `video.ass`（双语，与视频同名 → VLC 打开视频时自动加载）
 
 ### 支持语言
 

@@ -9,7 +9,7 @@
 #
 # 步骤: ① ffmpeg 抽取音频(<名字>.wav，16k 单声道无损，体积小、便于复用)
 #       ② transcribe 生成 <名字>_<语言>.ass   ③ translate 生成双语 <名字>.ass
-# 结果: <视频名>_<识别语言>.ass（原文）+ <视频名>.ass（双语）
+# 结果: <名字>_<语言>.ass（原文）+ <名字>.ass（双语，与视频同名 → VLC 打开视频自动加载）
 # 依赖 StaticPy 的部分用绝对路径（/opt/StaticPy）；翻译需 llama.cpp 服务（未启动则自动拉起）。
 set -euo pipefail
 
@@ -30,7 +30,7 @@ done
 # 无参数则扫描当前目录的视频
 if [ ${#files[@]} -eq 0 ]; then
   shopt -s nullglob nocaseglob
-  files=( *.mp4 *.mkv *.avi *.mov *.flv *.wmv *.m4v )
+  files=( *.mp4 *.mkv *.avi *.mov *.flv *.wmv *.m4v *.webm *.mpeg *.mpg *.ts *.m2ts )
   shopt -u nullglob nocaseglob
   echo "扫描当前目录，找到 ${#files[@]} 个视频文件"
 fi
@@ -53,14 +53,15 @@ fi
 
 is_video() {
   case "${1,,}" in
-    *.mp4|*.mkv|*.avi|*.mov|*.flv|*.wmv|*.m4v) return 0 ;;
+    *.mp4|*.mkv|*.avi|*.mov|*.flv|*.wmv|*.m4v|*.webm|*.mpeg|*.mpg|*.ts|*.m2ts) return 0 ;;
     *) return 1 ;;
   esac
 }
 
 t0=$(date +%s)
 for v in "${files[@]}"; do
-  base="${v%????}"                        # 去掉扩展名（4 字符）
+  base="${v%.*}"                          # 去掉扩展名（末个 . 之后）
+  [ "$base" = "$v" ] && base="$v"         # 无扩展名
 
   # ① 抽取音频（16k 单声道 WAV，无损、解码快；体积远小于视频）
   if is_video "$v"; then
@@ -76,7 +77,7 @@ for v in "${files[@]}"; do
     audio="$v"                            # 已是音频文件
   fi
 
-  # ② 语音识别
+  # ② 语音识别（输出 <base>_<语言>.ass）
   echo ">>> [2/3] transcribe: $audio"
   targs=()
   [ -n "$offset" ] && targs+=("--offset=$offset")
@@ -91,7 +92,7 @@ for v in "${files[@]}"; do
   fi
   src="$(ls -t "${produced[@]}" | head -1)"   # 取最新生成的
 
-  # ③ 翻译成双语
+  # ③ 翻译成双语（输出与视频同名的 <base>.ass，VLC 打开视频时自动加载）
   echo ">>> [3/3] translate: $src"
   bash "$HERE/translate.sh" --lang="$lang" "$src"
 done
