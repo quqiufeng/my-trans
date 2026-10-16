@@ -1,5 +1,5 @@
 #!/bin/bash
-# subtitle.sh — 一步生成双语字幕：视频 → transcribe → translate → 双语 ASS
+# subtitle.sh — 一步生成双语字幕：视频 → 抽音频 → transcribe → translate → 双语 ASS
 #
 # 用法:
 #   bash subtitle.sh                    扫描当前目录的视频，逐个处理
@@ -7,6 +7,8 @@
 #   bash subtitle.sh --offset=0.3 视频.mp4
 #   bash subtitle.sh --lang=ja 视频.mp4  # 指定目标语言（默认 zh）
 #
+# 步骤: ① ffmpeg 抽取音频(<名字>.wav，16k 单声道无损，体积小、便于复用)
+#       ② transcribe 生成 <名字>_<语言>.ass   ③ translate 生成双语 <名字>.ass
 # 结果: <视频名>_<识别语言>.ass（原文）+ <视频名>.ass（双语）
 # 依赖 StaticPy 的部分用绝对路径（/opt/StaticPy）；翻译需 llama.cpp 服务（未启动则自动拉起）。
 set -euo pipefail
@@ -49,14 +51,37 @@ if ! curl -s -m 2 "$LLM_HOST_URL/models" >/dev/null 2>&1; then
   echo ">>> 翻译服务就绪"
 fi
 
+is_video() {
+  case "${1,,}" in
+    *.mp4|*.mkv|*.avi|*.mov|*.flv|*.wmv|*.m4v) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
 t0=$(date +%s)
 for v in "${files[@]}"; do
-  echo ">>> [1/2] transcribe: $v"
+  base="${v%????}"                        # 去掉扩展名（4 字符）
+
+  # ① 抽取音频（16k 单声道 WAV，无损、解码快；体积远小于视频）
+  if is_video "$v"; then
+    audio="${base}.wav"
+    if [ -f "$audio" ]; then
+      echo ">>> [1/3] 已存在音频: $audio"
+    else
+      echo ">>> [1/3] 抽取音频: $v -> $audio"
+      ffmpeg -nostdin -v error -y -i "$v" -vn -ac 1 -ar 16000 -c:a pcm_s16le "$audio"
+      echo "        音频大小: $(du -h "$audio" | cut -f1)"
+    fi
+  else
+    audio="$v"                            # 已是音频文件
+  fi
+
+  # ② 语音识别
+  echo ">>> [2/3] transcribe: $audio"
   targs=()
   [ -n "$offset" ] && targs+=("--offset=$offset")
-  bash "$HERE/transcribe.sh" "${targs[@]}" "$v"
+  bash "$HERE/transcribe.sh" "${targs[@]}" "$audio"
 
-  base="${v%????}"                        # 去掉扩展名（4 字符）
   shopt -s nullglob
   produced=( "${base}"_*.ass )
   shopt -u nullglob
@@ -66,7 +91,8 @@ for v in "${files[@]}"; do
   fi
   src="$(ls -t "${produced[@]}" | head -1)"   # 取最新生成的
 
-  echo ">>> [2/2] translate: $src"
+  # ③ 翻译成双语
+  echo ">>> [3/3] translate: $src"
   bash "$HERE/translate.sh" --lang="$lang" "$src"
 done
 echo "完成，用时 $(( $(date +%s) - t0 ))s"

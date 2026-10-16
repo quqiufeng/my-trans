@@ -10,52 +10,40 @@ ScaledBorderAndShadow: yes
 Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
 Style: Default,仓耳今楷02,46,&H0000A5FF,&H000000FF,&H00000000,&H00000000,-1,0,0,0,100,100,0,0,1,2,2,2,10,10,10,1
 Style: Top,仓耳今楷02,40,&H0000A5FF,&H000000FF,&H00000000,&H00000000,-1,0,0,0,100,100,0,0,1,2,2,9,10,10,10,1
-Style: Comment,仓耳今楷02,34,&H0000A5FF,&H000000FF,&H00000000,&H00000000,-1,1,0,0,100,100,0,0,1,1,0,7,10,10,10,1
 
 [Events]
 Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
-Dialogue: 0,0:00:00.18,0:00:04.19,Default,,0,0,0,,Hello. I'm Dr. Michael Clarkson. Welcome to\N
-Dialogue: 0,0:00:04.19,0:00:08.03,Default,,0,0,0,,Functional Programming in OCaml. My main job\N
-Dialogue: 0,0:00:08.03,0:00:11.03,Default,,0,0,0,,is teaching university students to write\Ncorrect,\N
-Dialogue: 0,0:00:11.11,0:00:15.38,Default,,0,0,0,,efficient, and beautiful programs. In the\Nlast\N
-Dialogue: 0,0:00:15.38,0:00:19.32,Default,,0,0,0,,few years, I've taught OCaml to about 3 ,700\N
-Dialogue: 0,0:00:19.32,0:00:22.37,Default,,0,0,0,,students at Cornell University in a course\N
-Dialogue: 0,0:00:22.37,0:00:26.44,Default,,0,0,0,,titled CS3110, Data Structures and Functional\N
-Dialogue: 0,0:00:26.44,0:00:26.98,Default,,0,0,0,,Programming.\N
-Dialogue: 0,0:00:28.10,0:00:30.55,Default,,0,0,0,,You might have come across this video in any\N
-Dialogue: 0,0:00:30.55,0:00:33.34,Default,,0,0,0,,number of ways. Maybe you're actually a\Nstudent\N
-Dialogue: 0,0:00:33.34,0:00:36.88,Default,,0,0,0,,in CS 3110 right now. Maybe you're not a\N
-Dialogue: 0,0:00:36.88,0:00:38.46,Default,,0,0,0,,Cornell student, but you're looking to learn\N
-Dialogue: 0,0:00:38.46,0:00:41.42,Default,,0,0,0,,something about functional programming. Maybe\N
-Dialogue: 0,0:00:41.42,0:00:43.35,Default,,0,0,0,,you came here from the online textbook in\N
-Dialogue: 0,0:00:43.35,0:00:45.57,Default,,0,0,0,,which this video is embedded, or maybe you\N
-Dialogue: 0,0:00:45.57,0:00:47.85,Default,,0,0,0,,found the video first. In which case, check\N
-Dialogue: 0,0:00:47.85,0:00:49.67,Default,,0,0,0,,the comments below for the current link to\N
-Dialogue: 0,0:00:49.67,0:00:52.72,Default,,0,0,0,,the textbook. I've been writing the textbook\N
-Dialogue: 0,0:00:52.72,0:00:55.28,Default,,0,0,0,,for a few years now. It's based on course\N
-Dialogue: 0,0:00:55.28,0:00:57.86,Default,,0,0,0,,notes written by myself and other faculty for\N
-Dialogue: 0,0:00:58.29,0:01:02.03,Default,,0,0,0,,over two decades. Beyond teaching functional\N
-Dialogue: 0,0:01:02.03,0:01:05.31,Default,,0,0,0,,programming, our goal has long been to teach\N
-Dialogue: 0,0:01:05.31,0:01:08.40,Default,,0,0,0,,students to be great programmers, to equip\N
-Dialogue: 0,0:01:08.40,0:01:11.31,Default,,0,0,0,,them with the knowledge, skills, and habits\N
-Dialogue: 0,0:01:11.31,0:01:14.20,Default,,0,0,0,,they need to be successful beyond the basics\N
-Dialogue: 0,0:01:14.20,0:01:16.93,Default,,0,0,0,,of the usual introductory computer science\Nclasses.\N
-Dialogue: 0,0:01:17.98,0:01:22.00,Default,,0,0,0,,These videos, however, are new. They came\Nabout\N
-Dialogue: 0,0:01:22.00,0:01:26.43,Default,,0,0,0,,because of pandemic. In the 2020 through 2021\N
-Dialogue: 0,0:01:26.43,0:01:27.60,Default,,0,0,0,,academic  year,\N
-Dialogue: 0,0:01:28.01,0:01:30.82,Default,,0,0,0,,I taught an asynchronous version of my class.\N
-Dialogue: 0,0:01:31.15,0:01:34.12,Default,,0,0,0,,That meant these videos had to replace the\N
-Dialogue: 0,0:01:34.12,0:01:38.46,Default,,0,0,0,,usual in -person lectures. So I ended up\Nproducing\N
-Dialogue: 0,0:01:38.46,0:01:41.87,Default,,0,0,0,,over 200 short videos, most around five to\N
-Dialogue: 0,0:01:41.87,0:01:44.87,Default,,0,0,0,,six minutes in length. And the reaction from\N
-Dialogue: 0,0:01:44.87,0:01:49.01,Default,,0,0,0,,students was overwhelmingly positive. So now\N
-Dialogue: 0,0:01:49.01,0:01:51.90,Default,,0,0,0,,I'm making the videos publicly available for\N
-Dialogue: 0,0:01:51.90,0:01:54.89,Default,,0,0,0,,anyone who wants to learn something about\NOCaml,\N
-Dialogue: 0,0:01:55.03,0:01:57.73,Default,,0,0,0,,functional programming, and becoming a better\N
-Dialogue: 0,0:01:57.73,0:01:58.31,Default,,0,0,0,,programmer.\N
-Dialogue: 0,0:01:59.43,0:02:02.67,Default,,0,0,0,,I hope you find them useful, maybe even\Nentertaining.\N
-Dialogue: 0,0:02:03.84,0:02:06.81,Default,,0,0,0,,They are a love letter for me to all the\N
-Dialogue: 0,0:02:06.81,0:02:09.25,Default,,0,0,0,,students who endured through the time of Zoom\N
-Dialogue: 0,0:02:09.25,0:02:14.87,Default,,0,0,0,,U. We did it together. And now, maybe the\N
-Dialogue: 0,0:02:14.87,0:02:18.47,Default,,0,0,0,,world can be just a bit better as we spread\N
-Dialogue: 0,0:02:18.47,0:02:20.37,Default,,0,0,0,,the  light  of  functional  programming.\N
+Dialogue: 0,0:00:00.56,0:00:01.68,Default,,0,0,0,,Hello.\N
+Dialogue: 0,0:00:01.68,0:00:03.83,Default,,0,0,0,,I'm Dr. Michael Clarkson.\N
+Dialogue: 0,0:00:03.83,0:00:07.36,Default,,0,0,0,,Welcome to Functional Programming in OCaml.\N
+Dialogue: 0,0:00:07.36,0:00:10.11,Default,,0,0,0,,My main job is teaching university students\N
+Dialogue: 0,0:00:10.11,0:00:15.08,Default,,0,0,0,,to write correct, efficient, and beautiful programs.\N
+Dialogue: 0,0:00:15.08,0:00:17.55,Default,,0,0,0,,In the last few years, I've taught OCaml\N
+Dialogue: 0,0:00:17.55,0:00:22.07,Default,,0,0,0,,to about 3,700 students at Cornell University\N
+Dialogue: 0,0:00:22.07,0:00:25.80,Default,,0,0,0,,in a course titled CS3110, Data Structures\N
+Dialogue: 0,0:00:25.80,0:00:28.51,Default,,0,0,0,,and Functional Programming.\N
+Dialogue: 0,0:00:28.51,0:00:32.15,Default,,0,0,0,,You might have come across this video in any number of ways.\N
+Dialogue: 0,0:00:32.15,0:00:36.25,Default,,0,0,0,,Maybe you're actually a student in CS 3110 right now.\N
+Dialogue: 0,0:00:36.25,0:00:37.75,Default,,0,0,0,,Maybe you're not a Cornell student,\N
+Dialogue: 0,0:00:37.75,0:00:39.25,Default,,0,0,0,,but you're looking to learn something\N
+Dialogue: 0,0:00:39.25,0:00:41.28,Default,,0,0,0,,about functional programming.\N
+Dialogue: 0,0:00:41.28,0:00:43.37,Default,,0,0,0,,Maybe you came here from the online textbook\N
+Dialogue: 0,0:00:43.37,0:00:45.67,Default,,0,0,0,,in which this video is embedded, or maybe you\N
+Dialogue: 0,0:00:45.67,0:00:47.06,Default,,0,0,0,,found the video first.\N
+Dialogue: 0,0:00:47.06,0:00:49.03,Default,,0,0,0,,In which case, check the comments below\N
+Dialogue: 0,0:00:49.03,0:00:51.92,Default,,0,0,0,,for the current link to the textbook.\N
+Dialogue: 0,0:00:51.92,0:00:54.37,Default,,0,0,0,,I've been writing the textbook for a few years now.\N
+Dialogue: 0,0:00:54.37,0:00:56.92,Default,,0,0,0,,It's based on course notes written by myself\N
+Dialogue: 0,0:00:56.92,0:01:03.71,Default,,0,0,0,,other faculty for over two decades. Beyond teaching functional programming, our goal\N
+Dialogue: 0,0:01:03.71,0:01:10.20,Default,,0,0,0,,has long been to teach students to be great programmers, to equip them with the knowledge,\N
+Dialogue: 0,0:01:10.20,0:01:15.79,Default,,0,0,0,,skills, and habits they need to be successful beyond the basics of the usual introductory\N
+Dialogue: 0,0:01:15.79,0:01:23.24,Default,,0,0,0,,computer science classes. These videos, however, are new. They came about because of pandemic.\N
+Dialogue: 0,0:01:24.51,0:01:30.84,Default,,0,0,0,,In the 2020 through 2021 academic year, I taught an asynchronous version of my class.\N
+Dialogue: 0,0:01:31.64,0:01:38.92,Default,,0,0,0,,That meant these videos had to replace the usual in-person lectures. So I ended up producing over\N
+Dialogue: 0,0:01:38.92,0:01:46.03,Default,,0,0,0,,200 short videos, most around five to six minutes in length. And the reaction from students was\N
+Dialogue: 0,0:01:46.03,0:01:53.31,Default,,0,0,0,,overwhelmingly positive. So now I'm making the videos publicly available for anyone who wants\N
+Dialogue: 0,0:01:53.31,0:01:58.43,Default,,0,0,0,,to learn something about OCaml, functional programming, and becoming a better programmer.\N
+Dialogue: 0,0:01:59.63,0:02:06.19,Default,,0,0,0,,I hope you find them useful, maybe even entertaining. They are a love letter for me\N
+Dialogue: 0,0:02:06.19,0:02:13.63,Default,,0,0,0,,to all the students who endured through the time of Zoom U. We did it together. And now,\N
+Dialogue: 0,0:02:14.35,0:02:20.59,Default,,0,0,0,,maybe the world can be just a bit better as we spread the light of functional programming.\N
+Dialogue: 0,0:02:20.59,0:02:25.24,Default,,0,0,0,,Thank you.\N

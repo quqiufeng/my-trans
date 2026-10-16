@@ -166,7 +166,8 @@ bash subtitle.sh --lang=ja video.mp4
 bash subtitle.sh --offset=0.3 video.mp4
 ```
 
-`subtitle.sh` 会自动完成：`transcribe`（生成 `video_en.ass`）→ `translate`（生成双语 `video.ass`）；
+`subtitle.sh` 会自动完成：**① ffmpeg 抽取音频**（`video.wav`，16k 单声道无损，体积远小于视频）
+→ **② `transcribe`**（生成 `video_en.ass`）→ **③ `translate`**（生成双语 `video.ass`）；
 翻译服务（llama.cpp Hunyuan-MT）未启动时会自动拉起。
 
 ### 分步执行（可控）
@@ -303,7 +304,7 @@ bash translate.sh
 
 | 文件 | 说明 |
 |------|------|
-| `subtitle.sh` | 视频 → `transcribe` → `translate`，一步产出双语 ASS；服务未启动则自动拉起 |
+| `subtitle.sh` | 视频 →（抽音频）→ `transcribe` → `translate`，一步产出双语 ASS；服务未启动则自动拉起 |
 
 底层 `/opt/StaticPy/cpp/llm/`：`libllm.so`，自写 HTTP/1.1 客户端调用 llama.cpp `/v1/chat/completions`，
 C ABI 为 `llm_translate(text, target_name)`、`llm_translate_ass(in, out, lang)`、`llm_host()`。
@@ -384,7 +385,7 @@ my-trans/
 ### 处理流程
 
 ```
-视频.mp4 → transcribe → 视频_en.ass → translate → 视频.ass（双语）
+视频.mp4 → ffmpeg 抽音频 video.wav → transcribe → video_en.ass → translate → video.ass（双语）
 ```
 
 ### 核心模型
