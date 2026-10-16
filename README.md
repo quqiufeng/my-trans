@@ -392,8 +392,34 @@ my-trans/
 
 | 功能 | 模型 | 说明 |
 |------|------|------|
-| 语音识别 | CT2 C++ Whisper (StaticPy) | CTranslate2 C++ 引擎 + 自写 log-mel 前端，编译为独立二进制 |
+| 语音识别 | Whisper large-v3-**turbo**（CT2） | CTranslate2 C++ 引擎 + 自写 log-mel 前端，编译为独立二进制；默认 turbo，快 ~3× |
+| 语音识别（高精度） | Whisper large-v3（CT2） | 分句更细、更精细；用 `WHISPER_MODEL_DIR` 切换 |
 | 字幕翻译 | Hunyuan-MT-7B-Q4_K_M | 腾讯混元翻译专用模型，llama.cpp + CUDA |
+
+### 语音识别模型与速度
+
+- **默认 `large-v3-turbo`**：encoder 相同、decoder 仅 4 层，推理快约 **3×**，多语言。
+- **`large-v3`**：decoder 32 层，分句更细（更短、更碎），质量略高、速度较慢。
+- 实测（145s 音频，RTX 3080）：
+
+| 模型 | 分句 | 推理耗时 | 相对速度 |
+|------|------|---------|---------|
+| large-v3-turbo（默认） | 24 条 | 1.75s | **~3×** |
+| large-v3 | 34 条 | 5.14s | 1× |
+
+**环境变量**（`transcribe.sh` / `subtitle.sh` 均适用）：
+
+| 变量 | 说明 | 默认 |
+|------|------|------|
+| `WHISPER_MODEL_DIR` | 模型目录 | `/data/models/faster-whisper-large-v3-turbo` |
+| `WHISPER_BEAM` | 束搜索宽度（1=贪心，略快） | `5` |
+| `WHISPER_DEVICE` | 设为 `cpu` 强制 CPU | CUDA/FP16 |
+| `WHISPER_PROFILE` | 非空则打印分段耗时 | 关 |
+
+```bash
+# 用高精度 large-v3 转写
+WHISPER_MODEL_DIR=/data/models/faster-whisper-large-v3 bash subtitle.sh video.mp4
+```
 
 ### 技术栈
 
@@ -409,7 +435,7 @@ my-trans/
 | 角色 | 工具 | 说明 |
 |------|------|------|
 | 需求与开发 | OpenCode | AI 编程助手 |
-| 语音识别 | StaticPy + CTranslate2 | CTranslate2 C++ Whisper，自写 log-mel 前端 |
+| 语音识别 | StaticPy + CTranslate2 | CTranslate2 C++ Whisper（默认 large-v3-turbo），自写 log-mel 前端 |
 | 字幕翻译 | StaticPy + llama.cpp + Hunyuan-MT | 腾讯翻译模型，CUDA 加速 |
 
 ---
