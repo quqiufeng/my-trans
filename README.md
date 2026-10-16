@@ -18,7 +18,7 @@ AI-powered video subtitle generation and translation tool. Supports automatic la
 ┌─────────────────────────────────────────────────────────────────┐
 │  步骤 0：yt-dlp      →  下载 YouTube 视频                        │
 │      ↓                                                           │
-│  步骤 1：transcribe.py →  生成英文字幕 (Whisper)                 │
+│  步骤 1：transcribe   →  生成英文字幕 (Whisper)                 │
 │      ↓                                                           │
 │  步骤 2：人工校对    →  修正识别错误、专有名词                    │
 │      ↓                                                           │
@@ -69,10 +69,10 @@ $ yt-dlp "https://www.youtube.com/watch?v=abc123"
 
 ```bash
 # 转录音频，生成英文字幕
-python transcribe.py video.mp4
+bash transcribe.sh video.mp4
 
 # 常用参数
-python transcribe.py video.mp4 --offset=0.3    # 时间偏移校正
+bash transcribe.sh video.mp4 --offset=0.3    # 时间偏移校正
 ```
 
 输出：`video_en.ass`
@@ -120,7 +120,7 @@ python llm.py video_en.ass
 
 ```bash
 # 1. 生成英文字幕
-python transcribe.py "我的视频.mp4"
+bash transcribe.sh "我的视频.mp4"
 
 # 2. 人工校对 video_en.ass
 
@@ -152,7 +152,7 @@ ls *.ass
 
 ```bash
 # 1. 语音识别（生成英文字幕）
-python transcribe.py video.mp4
+bash transcribe.sh video.mp4
 
 # 2. 翻译字幕（选择一种方式）
 # 方式一：NLLB 离线翻译（速度快）
@@ -257,7 +257,7 @@ bash start_server.sh
 ### 1. 语音识别（生成英文字幕）
 
 ```bash
-python transcribe.py video.mp4
+bash transcribe.sh video.mp4
 ```
 
 输出: `video_en.ass` 或 `video_zh.ass`（根据检测语言）
@@ -310,16 +310,17 @@ python llm.py
 
 ## 脚本函数说明
 
-### transcribe.py
+### transcribe（StaticPy 二进制）
 
-| 函数 | 说明 |
+语音识别由 **StaticPy** 重写并编译为独立 ELF（`transcribe`），底层为 CTranslate2 C++ Whisper + 自写 log-mel 前端。
+源码 `transcribe.static.py`，用 `bash build.sh` 编译；运行时经 `bash transcribe.sh`（依赖 `/opt/StaticPy`）。
+
+| 文件 | 说明 |
 |------|------|
-| `transcribe_video(video_path, model, batched_model, offset)` | 转录音频并保存为 ASS 格式 |
-| `format_time_ass(seconds)` | 将秒数转换为 ASS 时间格式 |
-| `split_sentences(text)` | 按句子边界分割文本 |
-| `wrap_text(text, max_chars)` | 长文本自动换行 |
-| `create_ass_header()` | 创建 ASS 字幕头部 |
-| `create_ass_dialogue()` | 创建 ASS 对话行 |
+| `transcribe.static.py` | StaticPy 源码（Python 子集），扫描目录/按参数批量转写 |
+| `build.sh` | 调用 StaticPy 工具链编译出 `transcribe` 二进制 |
+| `transcribe.sh` | 运行包装器（设置 `LD_LIBRARY_PATH`） |
+| `transcribe_ffi.scm` | FFI：`load-shared-object libwhisper.so` |
 
 ### translate.py (NLLB)
 
@@ -347,7 +348,10 @@ python llm.py
 
 ```
 my-trans/
-├── transcribe.py              # 语音识别（faster-whisper）
+├── transcribe.static.py       # 语音识别源码（StaticPy，Python 子集）
+├── build.sh                   # 编译 transcribe 二进制（依赖 /opt/StaticPy）
+├── transcribe.sh              # 运行 transcribe（设置 LD_LIBRARY_PATH）
+├── transcribe_ffi.scm         # FFI：加载 libwhisper.so
 ├── translate.py               # NLLB 翻译（CTranslate2）
 ├── llm.py                     # llama.cpp + Hunyuan-MT 翻译（质量优先）
 ├── start_server.sh            # 启动 llama.cpp 翻译服务
@@ -372,8 +376,7 @@ my-trans/
 # PyTorch (GPU) - Windows CUDA 11.8
 pip install torch==2.7.1+cu118 torchvision==0.22.1+cu118 torchaudio==2.7.1+cu118 --index-url https://download.pytorch.org/whl/cu118
 
-# 核心依赖
-pip install faster-whisper==1.2.1
+# 核心依赖（语音识别已改为 StaticPy 二进制，无需 faster-whisper）
 pip install ctranslate2==4.7.1
 pip install transformers==4.35.0
 pip install huggingface_hub==0.16.4
@@ -414,24 +417,24 @@ pip install requests
 
 ```
 # 方式一：NLLB 离线翻译（快速预览）
-视频.mp4 → transcribe.py → 视频_en.ass → translate.py → 视频_en_bilingual.ass
+视频.mp4 → transcribe → 视频_en.ass → translate.py → 视频_en_bilingual.ass
 
 # 方式二：llama.cpp Hunyuan-MT 翻译（质量精翻）
-视频.mp4 → transcribe.py → 视频_en.ass → llm.py → 视频.ass
+视频.mp4 → transcribe → 视频_en.ass → llm.py → 视频.ass
 ```
 
 ### 核心模型
 
 | 功能 | 模型 | 说明 |
 |------|------|------|
-| 语音识别 | faster-whisper-large-v3 | OpenAI Whisper 的 CTranslate2 优化版 |
+| 语音识别 | CT2 C++ Whisper (StaticPy) | CTranslate2 C++ 引擎 + 自写 log-mel 前端，编译为独立二进制 |
 | 离线翻译 | NLLB-200-3.3B-ct2 | Meta 多语言翻译模型，支持 200+ 语言 |
 | 本地翻译 | Hunyuan-MT-7B-Q4_K_M | 腾讯混元翻译专用模型，llama.cpp + CUDA |
 
 ### 技术栈
 
-- **faster-whisper**: 基于 CTranslate2 的 Whisper 推理加速
-- **CTranslate2**: 高性能 Transformer 推理引擎
+- **CTranslate2 (C++)**：Whisper 语音识别，StaticPy 编译成独立二进制
+- **CTranslate2**：高性能 Transformer 推理引擎
 - **transformers**: Hugging Face 模型库
 - **llama.cpp**: 本地 LLM/MT 推理服务（OpenAI 兼容 API + CUDA）
 
@@ -442,7 +445,7 @@ pip install requests
 | 角色 | 工具 | 说明 |
 |------|------|------|
 | 需求与开发 | OpenCode | AI 编程助手 |
-| 语音识别 | faster-whisper | OpenAI Whisper 的 CTranslate2 优化版 |
+| 语音识别 | StaticPy + CTranslate2 | CTranslate2 C++ Whisper，自写 log-mel 前端 |
 | 离线翻译 | CTranslate2 + NLLB | 高性能 Transformer 推理引擎 |
 | 本地翻译 | llama.cpp + Hunyuan-MT | 腾讯翻译模型，CUDA 加速 |
 
