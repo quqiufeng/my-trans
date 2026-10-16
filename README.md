@@ -341,15 +341,6 @@ python llm.py
 | `translate_ass(ass_path, target_lang)` | 翻译整个 ASS 文件并输出双语 |
 | `create_bilingual_ass()` | 创建双语 ASS（直接改写 Dialogue 行） |
 
-### translate_nllb_official.py (备用)
-
-| 函数 | 说明 |
-|------|------|
-| `load_translator()` | 加载 HuggingFace Transformers NLLB 模型 |
-| `translate_batch()` | 批量翻译 |
-| `parse_ass(ass_path)` | 解析 ASS 文件 |
-| `create_bilingual_ass()` | 创建双语 ASS |
-
 ---
 
 ## 目录结构
@@ -359,9 +350,6 @@ my-trans/
 ├── transcribe.py              # 语音识别（faster-whisper）
 ├── translate.py               # NLLB 翻译（CTranslate2）
 ├── llm.py                     # llama.cpp + Hunyuan-MT 翻译（质量优先）
-├── translate_nllb_official.py # NLLB 翻译（Transformers 备用）
-├── my_whisper.py              # OpenAI Whisper 字幕生成
-├── download_models.py         # 模型下载工具
 ├── start_server.sh            # 启动 llama.cpp 翻译服务
 ├── res/                       # 原始文件目录
 │   ├── video.mp4              # 视频文件
