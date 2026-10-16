@@ -18,14 +18,19 @@ LLM_HOST_URL="${LLM_HOST:-http://127.0.0.1:8080/v1}"
 
 offset=""
 lang="zh"
+src_lang=""
 files=()
 for a in "$@"; do
   case "$a" in
-    --offset=*) offset="${a#--offset=}" ;;
-    --lang=*)   lang="${a#--lang=}" ;;
-    *)          files+=("$a") ;;
+    --offset=*)   offset="${a#--offset=}" ;;
+    --lang=*)     lang="${a#--lang=}" ;;
+    --src-lang=*) src_lang="${a#--src-lang=}" ;;
+    *)            files+=("$a") ;;
   esac
 done
+
+# 强制源语言（跳过 Whisper 自动检测），避免误检（如日语被认成英语）
+if [ -n "$src_lang" ]; then export WHISPER_LANG="$src_lang"; fi
 
 # 无参数则扫描当前目录的视频
 if [ ${#files[@]} -eq 0 ]; then
