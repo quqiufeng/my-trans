@@ -490,6 +490,8 @@ my-trans/
 | 变量 | 说明 | 默认 |
 |------|------|------|
 | `WHISPER_MODEL_DIR` | 模型目录（`…-turbo` 可切回快速版） | `/data/models/faster-whisper-large-v3` |
+| `WHISPER_MODEL_DIR_JA` | 日语专用模型目录（检测/强制为日语时自动切换） | `/data/models/kotoba-whisper-v2-faster` |
+| `WHISPER_CHUNK_SEC` | 解码窗长（秒）；kotoba/distil 系建议 `15` | `30` |
 | `WHISPER_BEAM` | 束搜索宽度（1=贪心，略快） | `5` |
 | `WHISPER_DEVICE` | 设为 `cpu` 强制 CPU | CUDA/FP16 |
 | `WHISPER_LANG` | 强制源语言（`ja`/`zh`/`en`…），跳过自动检测 | 自动 |
