@@ -123,12 +123,12 @@ bash translate.sh --lang=ja video_en.ass
 ### 完整命令
 
 ```bash
-# 1. 生成英文字幕
+# 一步：视频 → 双语字幕
+bash subtitle.sh "我的视频.mp4"
+
+# 或分步：
+# 1) 生成英文字幕   2) 人工校对 video_en.ass   3) 翻译成中文
 bash transcribe.sh "我的视频.mp4"
-
-# 2. 人工校对 video_en.ass
-
-# 3. 翻译成中文（扫描当前目录）
 bash translate.sh
 
 # 4. 得到双语字幕
@@ -153,6 +153,23 @@ ls *.ass
 ---
 
 ## 快速开始 / Quick Start
+
+### 一步生成双语字幕
+
+```bash
+# 扫描当前目录的视频，自动 转写 + 翻译，输出双语 ASS
+bash subtitle.sh
+
+# 或指定视频 / 目标语言
+bash subtitle.sh video.mp4
+bash subtitle.sh --lang=ja video.mp4
+bash subtitle.sh --offset=0.3 video.mp4
+```
+
+`subtitle.sh` 会自动完成：`transcribe`（生成 `video_en.ass`）→ `translate`（生成双语 `video.ass`）；
+翻译服务（llama.cpp Hunyuan-MT）未启动时会自动拉起。
+
+### 分步执行（可控）
 
 ```bash
 # 1. 语音识别（生成英文字幕）
@@ -282,6 +299,12 @@ bash translate.sh
 | `translate_ffi.scm` | FFI：`load-shared-object libllm.so` |
 | `translate.sh` | 运行包装器（设置 `LD_LIBRARY_PATH`） |
 
+### subtitle（一步流水线）
+
+| 文件 | 说明 |
+|------|------|
+| `subtitle.sh` | 视频 → `transcribe` → `translate`，一步产出双语 ASS；服务未启动则自动拉起 |
+
 底层 `/opt/StaticPy/cpp/llm/`：`libllm.so`，自写 HTTP/1.1 客户端调用 llama.cpp `/v1/chat/completions`，
 C ABI 为 `llm_translate(text, target_name)`、`llm_translate_ass(in, out, lang)`、`llm_host()`。
 
@@ -310,6 +333,7 @@ my-trans/
 ├── translate.static.py        # 字幕翻译源码（StaticPy）
 ├── translate_ffi.scm          # FFI：加载 libllm.so
 ├── translate.sh               # 运行 translate（设置 LD_LIBRARY_PATH）
+├── subtitle.sh                # 一步流水线：视频 → 转写 → 翻译 → 双语 ASS
 ├── build.sh                   # 编译两个二进制（依赖 /opt/StaticPy）
 ├── start_server.sh            # 启动 llama.cpp 翻译服务
 ├── res/                       # 原始文件目录
