@@ -208,3 +208,4 @@ __marimo__/
 
 # StaticPy 编译产物（build.sh 生成）
 /transcribe
+/translate

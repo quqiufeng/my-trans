@@ -1,12 +1,13 @@
 # my-trans
 
-> **本脚本用于 Windows 10/11 + GPU 环境运行**
-
 AI 时代已经来临，解放双手！
 
 基于 AI 的视频字幕生成与翻译工具，支持多语言自动检测，生成中文双语字幕。
 
 AI-powered video subtitle generation and translation tool. Supports automatic language detection for multilingual videos, generating Chinese bilingual subtitles.
+
+> 本项目已本地化：语音识别与翻译均为 **C++ 库 + [StaticPy](https://github.com/) 编译的独立二进制**，
+> 翻译走本地 **llama.cpp + 腾讯 Hunyuan-MT-7B** 服务，无需 pip / Python 运行时。
 
 ---
 
@@ -22,7 +23,7 @@ AI-powered video subtitle generation and translation tool. Supports automatic la
 │      ↓                                                           │
 │  步骤 2：人工校对    →  修正识别错误、专有名词                    │
 │      ↓                                                           │
-│  步骤 3：llm.py      →  Hunyuan-MT 翻译成中文                    │
+│  步骤 3：translate   →  Hunyuan-MT 翻译成中文                    │
 │      ↓                                                           │
 │  输出：视频名.ass   →  精准双语字幕 (对齐时间轴)                 │
 └─────────────────────────────────────────────────────────────────┘
@@ -99,20 +100,23 @@ bash transcribe.sh video.mp4 --offset=0.3    # 时间偏移校正
 + few years, I've taught OCaml to about 3,700
 ```
 
-#### 步骤 3：窗口滑动翻译
+#### 步骤 3：翻译成中文
 
 ```bash
 # 扫描当前目录所有 ASS 文件
-python llm.py
+bash translate.sh
 
 # 或指定单个文件
-python llm.py video_en.ass
+bash translate.sh video_en.ass
+
+# 指定目标语言（默认 zh）
+bash translate.sh --lang=ja video_en.ass
 ```
 
-**算法特点**：
-- 滑动窗口：每条字幕翻译时参考前 2 条中文译文
+**特点**：
+- 逐条翻译：每条字幕独立发送给 Hunyuan-MT，严格 1:1
 - 温度 0：确定性输出，不合并不拆分
-- 严格 1:1 对齐：保证时间轴准确
+- 时间轴不变：只改写 Dialogue 文本，双语以 `\N` 换行
 
 输出：`video_en.ass` → `video.ass`（双语）
 
@@ -125,7 +129,7 @@ bash transcribe.sh "我的视频.mp4"
 # 2. 人工校对 video_en.ass
 
 # 3. 翻译成中文（扫描当前目录）
-python llm.py
+bash translate.sh
 
 # 4. 得到双语字幕
 ls *.ass
@@ -139,12 +143,12 @@ ls *.ass
 |------|------|----------|
 | Whisper 语音识别 | 生成原始字幕 | AI 自动处理 |
 | 人工校对英文 | 修正原文错误 | 人工确保准确 |
-| 窗口滑动翻译 | 生成中文 | LLM 高质量 + 算法对齐 |
+| 逐条翻译 | 生成中文 | Hunyuan-MT 专用翻译模型 + 1:1 对齐 |
 
 **核心优势**：
 1. **英文准确** - 人工校对确保原文正确
-2. **中文地道** - LLM 翻译比 NLLB 更自然
-3. **时间轴对齐** - 窗口滑动算法保证 1:1 对应
+2. **中文地道** - Hunyuan-MT 专用翻译模型
+3. **时间轴对齐** - 逐条翻译保证 1:1 对应
 
 ---
 
@@ -154,28 +158,12 @@ ls *.ass
 # 1. 语音识别（生成英文字幕）
 bash transcribe.sh video.mp4
 
-# 2. 翻译字幕（选择一种方式）
-# 方式一：NLLB 离线翻译（速度快）
-python translate.py video.ass
+# 2. 启动本地翻译服务（Hunyuan-MT，若尚未启动）
+bash start_server.sh &
 
-# 方式二：llama.cpp Hunyuan-MT 翻译（质量好，推荐）
-python llm.py video.ass
+# 3. 翻译字幕（生成双语 ASS）
+bash translate.sh video.ass
 ```
-
----
-
-## 翻译方案对比
-
-| 特性 | NLLB (translate.py) | llama.cpp (llm.py) |
-|------|---------------------|--------------------|
-| 部署方式 | 本地模型文件 | 本地 llama.cpp 服务 |
-| 模型 | NLLB-200-3.3B-ct2 | Hunyuan-MT-7B-Q4_K_M |
-| 翻译质量 | 一般 | **优秀** |
-| 中文地道程度 | 机械 | 流畅自然 |
-| 速度 | 快（batch=128） | 中等（逐条发送，GPU 加速） |
-| 显存占用 | GPU 8GB+ | GPU 约 5GB（Q4 量化） |
-| 专有名词处理 | 直译 | 直译且更自然 |
-| 适用场景 | 批量预览 | 最终精翻 |
 
 ---
 
@@ -217,38 +205,7 @@ bash start_server.sh
 
 **字幕翻译用法**:
 - 官方推荐 prompt：`Translate the following segment into Chinese, without additional explanation.`
-- `llm.py` 默认逐条翻译（CONTEXT_SIZE=0），保证时间轴 1:1 对齐
-
-
----
-
-## NLLB 翻译模型（离线备用）
-
-- **模型**: [NLLB-200-3.3B](https://huggingface.co/facebook/nllb-200-distilled-3.3B)
-- **模型路径**: `E:/cuda/nllb-200-3.3B-ct2-float16`
-- **格式**: CTranslate2 量化 (FP16)
-- **加速**: CUDA GPU 推理
-
-### NLLB 模型介绍
-
-**官方链接**: https://huggingface.co/facebook/nllb-200-distilled-3.3B
-
-**模型架构**:
-- 类型: Encoder-Decoder Transformer
-- 参数规模: 3.3B (33亿参数，蒸馏版)
-- 语言支持: 200 种语言
-- 训练数据: 多语言平行语料
-
-**性能特点**:
-- 支持 200 种语言，包括罕见语言
-- 翻译质量稳定
-- **离线运行**，无需网络
-- CTranslate2 量化加速，GPU 推理
-
-**使用场景**:
-- 网络不可用时
-- 需要批量快速翻译
-- 小语种翻译需求
+- `translate` 逐条翻译，保证时间轴 1:1 对齐
 
 ---
 
@@ -264,83 +221,82 @@ bash transcribe.sh video.mp4
 
 **参数**:
 - `--offset=0.3` - 字幕时间偏移校正（秒）
+- `文件...` - 指定文件（不带则扫描当前目录）
 
 ### 2. 翻译字幕
 
-#### 方式一：NLLB 离线翻译（速度快）
-
 ```bash
 # 翻译英文字幕
-python translate.py video_en.ass
+bash translate.sh video_en.ass
 
-# 指定语言
-python translate.py --lang=ja video.ass
-```
-
-输出: `video_en_bilingual.ass`
-
-#### 方式二：llama.cpp Hunyuan-MT 翻译（质量好）
-
-```bash
-# 翻译英文字幕
-python llm.py video_en.ass
-
-# 指定语言
-python llm.py --lang=ja video.ass
+# 指定目标语言（默认 zh）
+bash translate.sh --lang=ja video_en.ass
 
 # 扫描当前目录所有 ASS 文件
-python llm.py
+bash translate.sh
 ```
 
-输出: `video.ass`（双语）
+输出: `video.ass`（双语，名字去掉 `_en`）
 
 ### 支持语言
 
 | 语言代码 | Language |
 |---------|----------|
-| `ja` | Japanese |
-| `en` | English |
 | `zh` | Chinese |
+| `en` | English |
+| `ja` | Japanese |
 | `ko` | Korean |
 | `fr` | French |
 | `de` | German |
 | `es` | Spanish |
+| `ru` | Russian |
+| `it` | Italian |
+| `pt` | Portuguese |
+| `ar` | Arabic |
+| `th` | Thai |
+| `vi` | Vietnamese |
+| `id` | Indonesian |
 
 ---
 
-## 脚本函数说明
+## 脚本说明
 
-### transcribe（StaticPy 二进制）
+语音识别与翻译均由 **StaticPy** 编译为独立 ELF 二进制，底层是自写的 C++ C-ABI 库。
+源码是 Python 子集（`*.static.py`），用 `bash build.sh` 编译；运行时经包装脚本（设置 `LD_LIBRARY_PATH`）。
 
-语音识别由 **StaticPy** 重写并编译为独立 ELF（`transcribe`），底层为 CTranslate2 C++ Whisper + 自写 log-mel 前端。
-源码 `transcribe.static.py`，用 `bash build.sh` 编译；运行时经 `bash transcribe.sh`（依赖 `/opt/StaticPy`）。
+### transcribe（语音识别）
 
 | 文件 | 说明 |
 |------|------|
-| `transcribe.static.py` | StaticPy 源码（Python 子集），扫描目录/按参数批量转写 |
-| `build.sh` | 调用 StaticPy 工具链编译出 `transcribe` 二进制 |
-| `transcribe.sh` | 运行包装器（设置 `LD_LIBRARY_PATH`） |
+| `transcribe.static.py` | StaticPy 源码：扫描目录/按参数批量转写 |
 | `transcribe_ffi.scm` | FFI：`load-shared-object libwhisper.so` |
+| `transcribe.sh` | 运行包装器（设置 `LD_LIBRARY_PATH`） |
 
-### translate.py (NLLB)
+底层 `/opt/StaticPy/cpp/whisper/`：CTranslate2 C++ Whisper + 自写 log-mel（fftw3f）前端。
 
-| 函数 | 说明 |
+### translate（字幕翻译）
+
+| 文件 | 说明 |
 |------|------|
-| `load_translator()` | 加载 CTranslate2 NLLB 翻译模型 |
-| `translate_batch_fast()` | 批量翻译 - 优化版 (batch_size=128) |
-| `parse_ass(ass_path)` | 解析 ASS 文件 |
-| `parse_vtt(vtt_path)` | 解析 VTT 文件 |
-| `create_bilingual_ass()` | 创建双语 ASS |
-| `create_bilingual_vtt()` | 创建双语 VTT |
+| `translate.static.py` | StaticPy 源码：扫描目录/按参数批量翻译 |
+| `translate_ffi.scm` | FFI：`load-shared-object libllm.so` |
+| `translate.sh` | 运行包装器（设置 `LD_LIBRARY_PATH`） |
 
-### llm.py (llama.cpp + Hunyuan-MT)
+底层 `/opt/StaticPy/cpp/llm/`：`libllm.so`，自写 HTTP/1.1 客户端调用 llama.cpp `/v1/chat/completions`，
+C ABI 为 `llm_translate(text, target_name)`、`llm_translate_ass(in, out, lang)`、`llm_host()`。
 
-| 函数 | 说明 |
-|------|------|
-| `translate_with_context(english_text, prev_pairs, idx, total, target_name)` | 调用 llama.cpp API 翻译单条字幕 |
-| `parse_ass(ass_path)` | 解析 ASS 文件 |
-| `translate_ass(ass_path, target_lang)` | 翻译整个 ASS 文件并输出双语 |
-| `create_bilingual_ass()` | 创建双语 ASS（直接改写 Dialogue 行） |
+### 编译
+
+```bash
+bash build.sh
+```
+
+会依次：
+1. 编译 `libwhisper.so`（`/opt/StaticPy/cpp/whisper`）
+2. 编译 `libllm.so`（`/opt/StaticPy/cpp/llm`）
+3. StaticPy AOT 编译 `transcribe` / `translate` 两个二进制
+
+> 依赖 StaticPy 工具链与 C++ 源码，路径固定为 `/opt/StaticPy`。
 
 ---
 
@@ -349,11 +305,12 @@ python llm.py
 ```
 my-trans/
 ├── transcribe.static.py       # 语音识别源码（StaticPy，Python 子集）
-├── build.sh                   # 编译 transcribe 二进制（依赖 /opt/StaticPy）
-├── transcribe.sh              # 运行 transcribe（设置 LD_LIBRARY_PATH）
 ├── transcribe_ffi.scm         # FFI：加载 libwhisper.so
-├── translate.py               # NLLB 翻译（CTranslate2）
-├── llm.py                     # llama.cpp + Hunyuan-MT 翻译（质量优先）
+├── transcribe.sh              # 运行 transcribe（设置 LD_LIBRARY_PATH）
+├── translate.static.py        # 字幕翻译源码（StaticPy）
+├── translate_ffi.scm          # FFI：加载 libllm.so
+├── translate.sh               # 运行 translate（设置 LD_LIBRARY_PATH）
+├── build.sh                   # 编译两个二进制（依赖 /opt/StaticPy）
 ├── start_server.sh            # 启动 llama.cpp 翻译服务
 ├── res/                       # 原始文件目录
 │   ├── video.mp4              # 视频文件
@@ -366,29 +323,16 @@ my-trans/
 
 ## 环境配置
 
-### Python 版本
-- Python 3.9+
+### 运行时
+- **无需 Python 运行时**：`transcribe` / `translate` 为静态编译的独立二进制
+- C++ 依赖：CTranslate2（Whisper）、fftw3f（log-mel）、libcurl/自写 HTTP（翻译）
 
-### 依赖安装
-
-#### 基础依赖（NLLB 离线翻译）
-```bash
-# PyTorch (GPU) - Windows CUDA 11.8
-pip install torch==2.7.1+cu118 torchvision==0.22.1+cu118 torchaudio==2.7.1+cu118 --index-url https://download.pytorch.org/whl/cu118
-
-# 核心依赖（语音识别已改为 StaticPy 二进制，无需 faster-whisper）
-pip install ctranslate2==4.7.1
-pip install transformers==4.35.0
-pip install huggingface_hub==0.16.4
-pip install tokenizers==0.14.0
-```
-
-#### llama.cpp 翻译依赖
-```bash
-pip install requests
-# 本地 llama.cpp 服务端（Hunyuan-MT GGUF 模型）
-# /opt/llama.cpp/build/bin/llama-server
-```
+### 编译依赖
+- **StaticPy** 工具链（`/opt/StaticPy`）
+- **g++**（C++17）
+- Nativa 头文件：`nlohmann/json.hpp`（翻译）、CT2 头文件（识别）
+- **llama.cpp** 服务端（Hunyuan-MT GGUF 模型）
+  - `/opt/llama.cpp/build/bin/llama-server`
 
 ---
 
@@ -416,11 +360,7 @@ pip install requests
 ### 处理流程
 
 ```
-# 方式一：NLLB 离线翻译（快速预览）
-视频.mp4 → transcribe → 视频_en.ass → translate.py → 视频_en_bilingual.ass
-
-# 方式二：llama.cpp Hunyuan-MT 翻译（质量精翻）
-视频.mp4 → transcribe → 视频_en.ass → llm.py → 视频.ass
+视频.mp4 → transcribe → 视频_en.ass → translate → 视频.ass（双语）
 ```
 
 ### 核心模型
@@ -428,14 +368,13 @@ pip install requests
 | 功能 | 模型 | 说明 |
 |------|------|------|
 | 语音识别 | CT2 C++ Whisper (StaticPy) | CTranslate2 C++ 引擎 + 自写 log-mel 前端，编译为独立二进制 |
-| 离线翻译 | NLLB-200-3.3B-ct2 | Meta 多语言翻译模型，支持 200+ 语言 |
-| 本地翻译 | Hunyuan-MT-7B-Q4_K_M | 腾讯混元翻译专用模型，llama.cpp + CUDA |
+| 字幕翻译 | Hunyuan-MT-7B-Q4_K_M | 腾讯混元翻译专用模型，llama.cpp + CUDA |
 
 ### 技术栈
 
 - **CTranslate2 (C++)**：Whisper 语音识别，StaticPy 编译成独立二进制
-- **CTranslate2**：高性能 Transformer 推理引擎
-- **transformers**: Hugging Face 模型库
+- **fftw3f**：自写 log-mel 频谱前端
+- **StaticPy**：Python 子集 → Scheme → AOT ELF，挂载 C 库 FFI
 - **llama.cpp**: 本地 LLM/MT 推理服务（OpenAI 兼容 API + CUDA）
 
 ---
@@ -446,210 +385,38 @@ pip install requests
 |------|------|------|
 | 需求与开发 | OpenCode | AI 编程助手 |
 | 语音识别 | StaticPy + CTranslate2 | CTranslate2 C++ Whisper，自写 log-mel 前端 |
-| 离线翻译 | CTranslate2 + NLLB | 高性能 Transformer 推理引擎 |
-| 本地翻译 | llama.cpp + Hunyuan-MT | 腾讯翻译模型，CUDA 加速 |
+| 字幕翻译 | StaticPy + llama.cpp + Hunyuan-MT | 腾讯翻译模型，CUDA 加速 |
 
 ---
 
-## LLM 翻译字幕：窗口滑动翻译算法
+## 字幕翻译：逐条 1:1 对齐
 
 > **模型差异说明**
 >
-> 该窗口滑动算法最初针对**通用指令模型**（如 Qwen2.5）设计，对完整句字幕效果良好。
-> 当前默认模型为**腾讯 Hunyuan-MT-7B**（专用翻译模型），其对碎片化字幕会“自作主张”补全句子，
+> 当前默认模型为**腾讯 Hunyuan-MT-7B**（专用翻译模型），它对碎片化字幕会“自作主张”补全句子。
 > 一旦传入前文上下文（无论放在 user 还是 system 消息），容易产生**跨行重复/错位**。
-> 因此 `llm.py` 默认 `CONTEXT_SIZE=0`（逐条 1:1 翻译），最稳定。
-> 如需启用上下文，设置 `CONTEXT_SIZE>0`，并建议配合**人工校对后的完整句字幕**。
+> 因此 `translate` 采用**逐条翻译**（每条独立请求），最稳定。
 
-### 问题背景
-
-在使用 LLM 批量翻译字幕时，面临两个冲突需求：
-
-1. **上下文连贯** - 需要批量翻译保留上下文
-2. **位置对齐** - 每条字幕必须对应原文字幕的时间戳
-
-### 问题表现
+### 为什么不用上下文窗口
 
 | 方案 | 结果 |
 |------|------|
-| 批量翻译（15条/批） | LLM 合并翻译，位置错乱 |
-| 逐条翻译（1条/批） | 对齐正确，但无上下文 |
-| 全文翻译 | LLM 修改原文结构 |
-| 序号排序 | LLM 不按格式返回 |
+| 批量翻译（多条/批） | 模型会合并翻译，位置错乱 |
+| 全文翻译 | 模型修改原文结构 |
+| **逐条翻译（1 条/请求）** | **对齐正确、最稳定** |
 
-### 解决方案：窗口滑动翻译算法
+### 实现要点
 
-#### 核心思路
-
-每条字幕翻译时，**仅使用前 N 条已翻译的中文作为上下文**，而不是完整全文。
-
-```
-┌─────────────────────────────────────────────────────────┐
-│  翻译第 i 条时                                           │
-│  ├─ 参考: 前 2 条的中文译文 (窗口)                       │
-│  ├─ 输入: 当前英文字幕 + 前2条中文                       │
-│  └─ 输出: 当前中文翻译                                    │
-│                                                          │
-│  窗口滑动: [译文1, 译文2] → [译文2, 译文3] → ...         │
-└─────────────────────────────────────────────────────────┘
-```
-
-#### 算法流程
-
-```
-1. 初始化空窗口 prev_translations = []
-
-2. 遍历每条字幕 i:
-   a. 构建 prompt:
-      - 包含 prev_translations (最多2条)
-      - 包含当前英文字幕
-      - 强调"只翻译当前这一条"
-   
-   b. 调用 LLM 翻译
-   
-   c. 将译文加入 prev_translations
-   
-   d. 如果窗口超过2条，移除最旧的
-      prev_translations = prev_translations[-2:]
-
-3. 按时间戳顺序输出双语 ASS
-```
-
-#### 代码实现
-
-```python
-CONTEXT_SIZE = 2  # 窗口大小
-
-def translate_with_context(english_text, prev_translations, idx, total):
-    # 构建上下文
-    context = ""
-    if prev_translations:
-        context = "[参考]\n" + "\n".join(prev_translations) + "\n"
-    
-    prompt = f"""{context}
-
-只翻译这一句（不要多译，不要漏译）：
-
-{english_text}
-
-输出中文："""
-
-    # 调用 LLM
-    response = requests.post(f"{LLMS_HOST}/chat/completions", json={
-        "model": MODEL,
-        "messages": [{"role": "user", "content": prompt}],
-        "temperature": 0  # 确定性输出
-    })
-    
-    return response
-
-# 主循环
-translations = []
-prev_translations = []
-
-for i, text in enumerate(texts):
-    trans = translate_with_context(text, prev_translations, i+1, len(texts))
-    translations.append(trans)
-    
-    prev_translations.append(trans)
-    if len(prev_translations) > CONTEXT_SIZE:
-        prev_translations = prev_translations[-CONTEXT_SIZE:]
-```
-
-#### 窗口大小对比
-
-| 窗口大小 | 上下文连贯性 | 位置对齐 | 风险 |
-|----------|-------------|----------|------|
-| 0 (逐条) | 差 | ★★★★★ | 无 |
-| 2 | ★★★★☆ | ★★★★★ | 低 |
-| 3 | ★★★★★ | ★★★☆☆ | 中 (合并风险) |
-| 全文 | ★★★★★ | ★★☆☆☆ | 高 (错乱) |
-
-**推荐: 窗口大小 = 2**
-
-#### 关键技巧
-
-1. **温度设为 0** - 减少随机性，确保输出稳定
-   ```python
-   "temperature": 0
-   ```
-
-2. **简化 prompt** - 避免复杂指令导致格式混乱
-   ```
-   只翻译这一句（不要多译，不要漏译）
-   输出中文：
-   ```
-
-3. **添加延迟** - 防止 API 过载
-   ```python
-   time.sleep(0.1)
-   ```
-
-### 为什么这个方案有效？
-
-1. **限制上下文长度** - LLM 不会因为看到太多内容而"自作主张"
-2. **保持局部连贯** - 前后2条足以为当前句子提供语境
-3. **1:1 严格对应** - 每条字幕独立翻译，不合并不拆分
-4. **确定性输出** - temperature=0 避免随机扰动
+1. **温度 0** - 确定性输出，字幕翻译不需要创意
+2. **严格 1:1** - 每条 Dialogue 独立翻译，不合并不拆分
+3. **双语拼接** - 原文 + `\N` + 译文，时间轴保持不变
+4. **Prompt 固定** - `Translate the following segment into <目标语言>, without additional explanation.`
 
 ### 验证结果
 
 ```
-测试文件: 45 条字幕
-窗口大小: 2
-翻译耗时: 12 秒
-成功率: 45/45 (100%)
+测试文件: 27 条字幕
+翻译耗时: 4 秒（RTX 3080）
+语言: en → zh
 时间戳对齐: ✓ 完全正确
 ```
-
-### 完整代码
-
-详见 `llm.py` 中的 `translate_with_context()` 函数：
-
-```python
-def translate_with_context(english_text, prev_translations, idx, total):
-    """使用滑动窗口上下文翻译单条字幕"""
-    context = ""
-    if prev_translations:
-        context = "[参考]\n" + "\n".join(prev_translations) + "\n"
-    
-    prompt = f"""{context}
-
-只翻译这一句（不要多译，不要漏译）：
-
-{english_text}
-
-输出中文："""
-
-    payload = {
-        "model": MODEL,
-        "messages": [{"role": "user", "content": prompt}],
-        "max_tokens": 1024,
-        "temperature": 0
-    }
-    
-    try:
-        response = requests.post(f"{LLMS_HOST}/chat/completions", json=payload, timeout=60)
-        response.raise_for_status()
-        content = response.json()["choices"][0]["message"]["content"].strip()
-        return content
-    except Exception as e:
-        print(f"    错误: {e}")
-        return None
-```
-
-### 适用场景
-
-本算法适用于：
-
-- **视频字幕翻译** - 保持时间轴对齐
-- **长文章分段翻译** - 保持段落对应
-- **对话内容翻译** - 保持说话人顺序
-- **任何需要位置对齐的批量翻译任务**
-
-### 经验总结
-
-1. **不要让 LLM 看太多** - 上下文越多，顺序越乱
-2. **窗口要小** - 2-3条是最佳平衡点
-3. **温度设为 0** - 字幕翻译不需要创意
-4. **Prompt 要简单** - 复杂指令适得其反
