@@ -94,6 +94,6 @@ for v in "${files[@]}"; do
 
   # ③ 翻译成双语（输出与视频同名的 <base>.ass，VLC 打开视频时自动加载）
   echo ">>> [3/3] translate: $src"
-  bash "$HERE/translate.sh" --lang="$lang" "$src"
+  bash "$HERE/translate.sh" --lang="$lang" --out="${base}.ass" "$src"
 done
 echo "完成，用时 $(( $(date +%s) - t0 ))s"
