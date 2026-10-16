@@ -6,8 +6,10 @@
 #   bash subtitle.sh 视频1.mp4 [视频2.mp4 ...]
 #   bash subtitle.sh --offset=0.3 视频.mp4
 #   bash subtitle.sh --lang=ja 视频.mp4  # 指定目标语言（默认 zh）
+#   bash subtitle.sh --no-separate 视频.mp4  # 关闭人声分离（默认开启）
 #
 # 步骤: ① ffmpeg 抽取音频(<名字>.wav，16k 单声道无损，体积小、便于复用)
+#       ①' Demucs 分离人声(<名字>.vocals.wav)，过滤 BGM/环境音降低低信噪比幻觉
 #       ② transcribe 生成 <名字>_<语言>.ass   ③ translate 生成双语 <名字>.ass
 # 结果: <名字>_<语言>.ass（原文）+ <名字>.ass（双语，与视频同名 → VLC 打开视频自动加载）
 # 依赖 StaticPy 的部分用绝对路径（/opt/StaticPy）；翻译需 llama.cpp 服务（未启动则自动拉起）。
@@ -19,13 +21,18 @@ LLM_HOST_URL="${LLM_HOST:-http://127.0.0.1:8080/v1}"
 offset=""
 lang="zh"
 src_lang=""
+separate="${SUB_SEPARATE:-1}"          # 1=送识别前先用 Demucs 分离人声（去 BGM/环境音）
+sub_python="${SUB_PYTHON:-/data/venv/bin/python}"
+demucs_model="${SUB_DEMUCS_MODEL:-htdemucs}"
 files=()
 for a in "$@"; do
   case "$a" in
-    --offset=*)   offset="${a#--offset=}" ;;
-    --lang=*)     lang="${a#--lang=}" ;;
-    --src-lang=*) src_lang="${a#--src-lang=}" ;;
-    *)            files+=("$a") ;;
+    --offset=*)    offset="${a#--offset=}" ;;
+    --lang=*)      lang="${a#--lang=}" ;;
+    --src-lang=*)  src_lang="${a#--src-lang=}" ;;
+    --separate)    separate=1 ;;
+    --no-separate) separate=0 ;;
+    *)             files+=("$a") ;;
   esac
 done
 
@@ -82,11 +89,36 @@ for v in "${files[@]}"; do
     audio="$v"                            # 已是音频文件
   fi
 
+  # ①' 人声分离：Demucs 去掉 BGM/环境音，显著降低低信噪比下的复读/错听幻觉
+  in_audio="$audio"
+  if [ "$separate" = 1 ] && [ -x "$sub_python" ] && \
+     "$sub_python" -c 'import demucs' >/dev/null 2>&1; then
+    vocals="${base}.vocals.wav"
+    if [ -s "$vocals" ]; then
+      echo ">>> [1'/3] 复用已分离人声: $vocals"
+    else
+      echo ">>> [1'/3] Demucs 分离人声（$demucs_model）..."
+      sepout="$(mktemp -d)"
+      "$sub_python" -m demucs --two-stems=vocals -n "$demucs_model" -o "$sepout" "$audio" >/dev/null 2>&1 || true
+      vraw="$(ls "$sepout/$demucs_model"/*/vocals.wav 2>/dev/null | head -1)"
+      [ -n "$vraw" ] && ffmpeg -nostdin -v error -y -i "$vraw" -ac 1 -ar 16000 -c:a pcm_s16le "$vocals"
+      rm -rf "$sepout"
+    fi
+    if [ -s "$vocals" ]; then in_audio="$vocals"; else echo "  ! 分离失败，改用原始音轨"; fi
+  fi
+
   # ② 语音识别（输出 <base>_<语言>.ass）
-  echo ">>> [2/3] transcribe: $audio"
+  echo ">>> [2/3] transcribe: $in_audio"
   targs=()
   [ -n "$offset" ] && targs+=("--offset=$offset")
-  bash "$HERE/transcribe.sh" "${targs[@]}" "$audio"
+  bash "$HERE/transcribe.sh" "${targs[@]}" "$in_audio"
+
+  # 识别产物名跟随输入文件名，分离后需改回原基准名（<base>.vocals_<lang>.ass → <base>_<lang>.ass）
+  if [ "$in_audio" != "$audio" ]; then
+    shopt -s nullglob
+    for f in "${base}".vocals_*.ass; do mv -f "$f" "${base}_${f#"${base}".vocals_}"; done
+    shopt -u nullglob
+  fi
 
   shopt -s nullglob
   produced=( "${base}"_*.ass )
