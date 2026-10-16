@@ -480,14 +480,16 @@ my-trans/
 
 ### 语音识别模型
 
+- **`large-v3`（默认）**：完整模型，**日语等非英语质量最好**（turbo 的日语常整段听错/幻觉）。
+  推理较慢（约为 turbo 的 3~4×），RTX 3080 仍可接受。
 - **`large-v3-turbo`**：encoder 同 large-v3、decoder 仅 4 层，推理快约 **3×**
-  （实测 145s 音频 1.75s，RTX 3080），多语言，支持自动检测源语言。
+  （实测 145s 音频 1.75s），但**非英语质量明显下降**，仅建议英语/追求速度时用。
 
 **环境变量**（`transcribe.sh` / `subtitle.sh` 均适用）：
 
 | 变量 | 说明 | 默认 |
 |------|------|------|
-| `WHISPER_MODEL_DIR` | 模型目录 | `/data/models/faster-whisper-large-v3-turbo` |
+| `WHISPER_MODEL_DIR` | 模型目录（`…-turbo` 可切回快速版） | `/data/models/faster-whisper-large-v3` |
 | `WHISPER_BEAM` | 束搜索宽度（1=贪心，略快） | `5` |
 | `WHISPER_DEVICE` | 设为 `cpu` 强制 CPU | CUDA/FP16 |
 | `WHISPER_LANG` | 强制源语言（`ja`/`zh`/`en`…），跳过自动检测 | 自动 |
@@ -495,7 +497,12 @@ my-trans/
 | `WHISPER_VAD_MODEL` | VAD 模型路径 | `/data/models/silero-vad/silero_vad.onnx` |
 | `WHISPER_VAD_THRESHOLD` | 语音概率阈值 | `0.5` |
 | `WHISPER_MAX_SEG_SEC` | 丢弃长于该秒数的段（整窗填充伪影） | `15` |
+| `WHISPER_MAX_CHAR_RUN` | 同一字连续重复≥该值判为复读幻觉并丢弃（`0` 关） | `4` |
+| `WHISPER_DROP_PHRASES` | 幻觉短语黑名单（逗号分隔，覆盖默认；`-` 关闭） | 见表下 |
 | `WHISPER_PROFILE` | 非空则打印分段耗时 | 关 |
+
+> 默认幻觉短语黑名单：`ご視聴ありがとうございました`、`ご視聴ありがとうございます`、
+> `チャンネル登録`、`おやすみなさい`、`ご視聴ありがとう`（片头片尾/BGM 段高频幻觉）。
 
 > **VAD 语音门控**：背景音乐/静音段不送 Whisper，从根源消除「无人说话却配字幕」
 > 的幻觉（尤其是高频 BGM 的影片）。依赖 `libonnxruntime` 与 Silero VAD 模型；
