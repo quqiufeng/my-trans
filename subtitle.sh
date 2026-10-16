@@ -24,6 +24,7 @@ src_lang=""
 separate="${SUB_SEPARATE:-1}"          # 1=送识别前先用 Demucs 分离人声（去 BGM/环境音）
 sub_python="${SUB_PYTHON:-/data/venv/bin/python}"
 demucs_model="${SUB_DEMUCS_MODEL:-htdemucs}"
+sep_chunk="${SUB_SEPARATE_CHUNK:-600}"  # 分离分块秒数（长音频防 OOM）
 files=()
 for a in "$@"; do
   case "$a" in
@@ -97,11 +98,21 @@ for v in "${files[@]}"; do
     if [ -s "$vocals" ]; then
       echo ">>> [1'/3] 复用已分离人声: $vocals"
     else
-      echo ">>> [1'/3] Demucs 分离人声（$demucs_model）..."
+      echo ">>> [1'/3] Demucs 分离人声（$demucs_model，分块 ${sep_chunk}s 防 OOM）..."
       sepout="$(mktemp -d)"
-      "$sub_python" -m demucs --two-stems=vocals -n "$demucs_model" -o "$sepout" "$audio" >/dev/null 2>&1 || true
-      vraw="$(ls "$sepout/$demucs_model"/*/vocals.wav 2>/dev/null | head -1)"
-      [ -n "$vraw" ] && ffmpeg -nostdin -v error -y -i "$vraw" -ac 1 -ar 16000 -c:a pcm_s16le "$vocals"
+      # 长音频一次性载入会吃爆内存，按块分割后逐块分离，再拼接
+      ffmpeg -nostdin -v error -y -i "$audio" -f segment -segment_time "$sep_chunk" \
+             -reset_timestamps 1 -c:a pcm_s16le "$sepout/chunk_%05d.wav"
+      : > "$sepout/list.txt"
+      for c in "$sepout"/chunk_*.wav; do
+        [ -s "$c" ] || continue
+        "$sub_python" -m demucs --two-stems=vocals -n "$demucs_model" -o "$sepout/out" "$c" >/dev/null 2>&1 || true
+        vc="$sepout/out/$demucs_model/$(basename "${c%.wav}")/vocals.wav"
+        [ -s "$vc" ] && printf "file '%s'\n" "$vc" >> "$sepout/list.txt"
+      done
+      if [ -s "$sepout/list.txt" ]; then
+        ffmpeg -nostdin -v error -y -f concat -safe 0 -i "$sepout/list.txt" -ac 1 -ar 16000 -c:a pcm_s16le "$vocals"
+      fi
       rm -rf "$sepout"
     fi
     if [ -s "$vocals" ]; then in_audio="$vocals"; else echo "  ! 分离失败，改用原始音轨"; fi

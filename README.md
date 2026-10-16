@@ -515,6 +515,7 @@ my-trans/
 | `SUB_SEPARATE` | 设为 `0` 关闭人声分离 | `1`（开） |
 | `SUB_PYTHON` | 跑 Demucs 的解释器（需含 torch/demucs） | `/data/venv/bin/python` |
 | `SUB_DEMUCS_MODEL` | Demucs 模型名 | `htdemucs` |
+| `SUB_SEPARATE_CHUNK` | 分离分块秒数（长音频整段载入会 OOM，按块分离后拼接） | `600` |
 
 也可用 `--no-separate` 单次关闭。解释器缺 `demucs` 时自动降级为不分离。
 
