@@ -185,6 +185,78 @@ bash translate.sh video.ass
 
 ---
 
+## 超大视频 / NAS(WebDAV)：直接生成双语字幕
+
+> 场景：视频动辄几 GB ~ 十几 GB（甚至数小时），存放在 NAS / WebDAV 上。
+> 目标：**不下载整包**，直接生成中日/中英双语字幕，并让 VLC 流式播放时自动加载。
+
+### 思路
+
+1. **字幕只需要音频**：十几 GB 的 4K 视频，音轨往往只有几百 MB。
+   ffmpeg 支持 **HTTP Range**，可直接从 WebDAV URL 边读边抽，只取音轨，不落地整段视频。
+2. **抽成 16k 单声道无损 WAV**：体积小，且避免有损重编码影响分句
+   （实测有损 AAC 会把短句合并，字幕条数变少）。
+3. **源语言自动检测**（Whisper），目标语言默认中文，一步完成转写 + 翻译成双语 ASS。
+4. **字幕按「视频同名」回传 NAS 同目录**：VLC 打开原视频即自动加载，无需手动选字幕。
+5. **VLC 用带凭据的 URL 流式播放**，拖动进度也走 HTTP Range。
+
+### 操作：只给一个 NAS 完整路径
+
+```bash
+# 只需 NAS 上的完整路径（或 dav:// URL），其余全自动
+bash nas_subtitle.sh "/sata11-18072858035/av/.../video.mp4"
+
+# 等价写法（dav:// URL）
+bash nas_subtitle.sh "dav://192.168.1.53:5005/sata11-18072858035/av/.../video.mp4"
+
+# 选项
+#   --lang=ja     目标语言（默认 zh）
+#   --offset=0.3  转写时间偏移校正
+#   --no-vlc      只生成字幕，不打开 VLC
+#   --dry-run     只解析 URL，不实际处理
+```
+
+脚本自动完成 4 步：
+
+| 步骤 | 动作 |
+|------|------|
+| ① 抽音轨 | ffmpeg 经 **HTTP Range** 从 NAS 只拉音轨 → `~/nas/<视频名>.wav`（16k 单声道无损） |
+| ② 转写 | `transcribe`，**源语言自动检测** → `<视频名>_<lang>.ass` |
+| ③ 翻译 | `translate` → 双语 `<视频名>.ass` |
+| ④ 回传 + 播放 | 字幕 **PUT 回 NAS 同目录同名**；`vlc` 流式打开原视频（自动加载字幕） |
+
+依赖 `~/.env` 中的 `WEBDAV_URL / WEBDAV_USER / WEBDAV_PASS`；
+工作目录默认 `~/nas`（可用环境变量 `NAS_WORKDIR` 覆盖）。
+
+### 手工分步（与脚本等价）
+
+```bash
+set -a; . ~/.env; set +a
+P='/sata11-18072858035/av/.../video.mp4'          # NAS 上的完整路径
+URL=$(python3 -c "import urllib.parse,sys;u,user,pw,path=sys.argv[1:5];print(u.replace('http://','http://%s:%s@'%(urllib.parse.quote(user,safe=''),urllib.parse.quote(pw,safe='')))+urllib.parse.quote(path))" "$WEBDAV_URL" "$WEBDAV_USER" "$WEBDAV_PASS" "$P")
+
+# ① 只抽音轨（不下载整包）
+ffmpeg -i "$URL" -vn -ac 1 -ar 16000 -c:a pcm_s16le video.wav
+# ②③ 转写 + 翻译（自动检测源语言 → 中文）
+bash subtitle.sh video.wav
+# ④ 回传字幕（同目录同名）+ VLC 流式播放
+curl -T video.ass -u "$WEBDAV_USER:$WEBDAV_PASS" "http://192.168.1.53:5005/.../video.ass"
+vlc "http://用户名:密码@192.168.1.53:5005/.../video.mp4"
+```
+
+### 实测耗时（RTX 3080，Whisper turbo + Hunyuan-MT）
+
+| 视频 | 时长 | 大小 | 抽音轨 | 转写 | 翻译 | 总计 | 折合 |
+|------|------|------|--------|------|------|------|------|
+| JUQ-510 | 4h47m | 12.97GB | 1m54s | 314s | 197s | ~10m24s | 2m10s / 小时 |
+| mida-040-4k | 2h04m | 10.5GB (4K) | 1m35s | 133s | 95s | ~6m03s | 2m36s / 小时 |
+| ACHJ-052 | 2h32m | 6.88GB | 1m03s | 172s | 183s | ~6m58s | 2m45s / 小时 |
+
+**平均约 0.04× 实时（每 1 小时视频约 2m25s，约 25× 加速）。**
+抽音轨只传输音轨体积（如 13GB 视频仅拉 ~550MB）。
+
+---
+
 ## llama.cpp 服务配置
 
 本地通过 **llama.cpp** 加载腾讯 **Hunyuan-MT-7B** 翻译专用模型，提供 OpenAI 兼容 API。
@@ -306,6 +378,12 @@ bash translate.sh
 |------|------|
 | `subtitle.sh` | 视频 →（抽音频）→ `transcribe` → `translate`，一步产出双语 ASS；服务未启动则自动拉起 |
 
+### nas_subtitle（NAS / 超大视频一步流水线）
+
+| 文件 | 说明 |
+|------|------|
+| `nas_subtitle.sh` | 只给 NAS 完整路径：经 **HTTP Range 只抽音轨**（不下载整包）→ `transcribe` → `translate` → 双语字幕**回传 NAS 同目录同名** → **VLC 流式播放**（自动加载字幕） |
+
 底层 `/opt/StaticPy/cpp/llm/`：`libllm.so`，自写 HTTP/1.1 客户端调用 llama.cpp `/v1/chat/completions`，
 C ABI 为 `llm_translate(text, target_name)`、`llm_translate_ass(in, out, lang)`、`llm_host()`。
 
@@ -335,6 +413,7 @@ my-trans/
 ├── translate_ffi.scm          # FFI：加载 libllm.so
 ├── translate.sh               # 运行 translate（设置 LD_LIBRARY_PATH）
 ├── subtitle.sh                # 一步流水线：视频 → 转写 → 翻译 → 双语 ASS
+├── nas_subtitle.sh            # NAS/超大视频：只抽音轨 → 双语字幕 → 回传 NAS → 播放 VLC
 ├── build.sh                   # 编译两个二进制（依赖 /opt/StaticPy）
 ├── start_server.sh            # 启动 llama.cpp 翻译服务
 ├── res/                       # 原始文件目录
@@ -392,20 +471,13 @@ my-trans/
 
 | 功能 | 模型 | 说明 |
 |------|------|------|
-| 语音识别 | Whisper large-v3-**turbo**（CT2） | CTranslate2 C++ 引擎 + 自写 log-mel 前端，编译为独立二进制；默认 turbo，快 ~3× |
-| 语音识别（高精度） | Whisper large-v3（CT2） | 分句更细、更精细；用 `WHISPER_MODEL_DIR` 切换 |
+| 语音识别 | Whisper **large-v3-turbo**（CT2） | CTranslate2 C++ 引擎 + 自写 log-mel 前端，编译为独立二进制 |
 | 字幕翻译 | Hunyuan-MT-7B-Q4_K_M | 腾讯混元翻译专用模型，llama.cpp + CUDA |
 
-### 语音识别模型与速度
+### 语音识别模型
 
-- **默认 `large-v3-turbo`**：encoder 相同、decoder 仅 4 层，推理快约 **3×**，多语言。
-- **`large-v3`**：decoder 32 层，分句更细（更短、更碎），质量略高、速度较慢。
-- 实测（145s 音频，RTX 3080）：
-
-| 模型 | 分句 | 推理耗时 | 相对速度 |
-|------|------|---------|---------|
-| large-v3-turbo（默认） | 24 条 | 1.75s | **~3×** |
-| large-v3 | 34 条 | 5.14s | 1× |
+- **`large-v3-turbo`**：encoder 同 large-v3、decoder 仅 4 层，推理快约 **3×**
+  （实测 145s 音频 1.75s，RTX 3080），多语言，支持自动检测源语言。
 
 **环境变量**（`transcribe.sh` / `subtitle.sh` 均适用）：
 
@@ -415,11 +487,6 @@ my-trans/
 | `WHISPER_BEAM` | 束搜索宽度（1=贪心，略快） | `5` |
 | `WHISPER_DEVICE` | 设为 `cpu` 强制 CPU | CUDA/FP16 |
 | `WHISPER_PROFILE` | 非空则打印分段耗时 | 关 |
-
-```bash
-# 用高精度 large-v3 转写
-WHISPER_MODEL_DIR=/data/models/faster-whisper-large-v3 bash subtitle.sh video.mp4
-```
 
 ### 技术栈
 
