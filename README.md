@@ -22,7 +22,7 @@ AI-powered video subtitle generation and translation tool. Supports automatic la
 │      ↓                                                           │
 │  步骤 2：人工校对    →  修正识别错误、专有名词                    │
 │      ↓                                                           │
-│  步骤 3：llm.py      →  窗口滑动翻译成中文                       │
+│  步骤 3：llm.py      →  Hunyuan-MT 翻译成中文                    │
 │      ↓                                                           │
 │  输出：视频名.ass   →  精准双语字幕 (对齐时间轴)                 │
 └─────────────────────────────────────────────────────────────────┘
@@ -158,7 +158,7 @@ python transcribe.py video.mp4
 # 方式一：NLLB 离线翻译（速度快）
 python translate.py video.ass
 
-# 方式二：LM Studio 千问翻译（质量好，推荐）
+# 方式二：llama.cpp Hunyuan-MT 翻译（质量好，推荐）
 python llm.py video.ass
 ```
 
@@ -166,48 +166,59 @@ python llm.py video.ass
 
 ## 翻译方案对比
 
-| 特性 | NLLB (translate.py) | LM Studio (llm.py) |
+| 特性 | NLLB (translate.py) | llama.cpp (llm.py) |
 |------|---------------------|--------------------|
-| 部署方式 | 本地模型文件 | 本地 API 服务 |
-| 模型 | NLLB-200-3.3B-ct2 | Qwen2.5-7B-Instruct |
+| 部署方式 | 本地模型文件 | 本地 llama.cpp 服务 |
+| 模型 | NLLB-200-3.3B-ct2 | Hunyuan-MT-7B-Q4_K_M |
 | 翻译质量 | 一般 | **优秀** |
 | 中文地道程度 | 机械 | 流畅自然 |
-| 速度 | 快（batch=128） | 较慢（逐条发送） |
-| 显存占用 | GPU 8GB+ | 无（CPU 调用） |
-| 专有名词处理 | 直译 | 首次标注原文 |
+| 速度 | 快（batch=128） | 中等（逐条发送，GPU 加速） |
+| 显存占用 | GPU 8GB+ | GPU 约 5GB（Q4 量化） |
+| 专有名词处理 | 直译 | 直译且更自然 |
 | 适用场景 | 批量预览 | 最终精翻 |
 
 ---
 
-## LM Studio 配置
+## llama.cpp 服务配置
 
-**官方主页**: https://lmstudio.ai/
+本地通过 **llama.cpp** 加载腾讯 **Hunyuan-MT-7B** 翻译专用模型，提供 OpenAI 兼容 API。
 
-- **模型**: [Qwen2.5-7B-Instruct-GGUF](https://huggingface.co/mradermacher/Qwen2.5-7B-Instruct-GGUF)
-- **量化版本**: `Qwen2.5-7B-Instruct.Q5_K_M.gguf`
-- **模型路径**: `E:\model\mradermacher\Qwen2.5-7B-Instruct-GGUF`
-- **服务器**: `http://192.168.124.3:11434/v1` (OpenAI 兼容 API)
+- **服务端**: `/opt/llama.cpp/build/bin/llama-server`
+- **模型**: `/data/models/Hunyuan-MT-7B-Q4_K_M.gguf`
+- **API**: `http://127.0.0.1:8080/v1` (OpenAI 兼容)
 
-### Qwen2.5-7B 模型介绍
+### 启动服务
 
-**官方链接**: https://huggingface.co/Qwen/Qwen2.5-7B-Instruct
+```bash
+bash start_server.sh
+```
+
+或手动启动：
+
+```bash
+/opt/llama.cpp/build/bin/llama-server \
+  -m /data/models/Hunyuan-MT-7B-Q4_K_M.gguf \
+  --host 127.0.0.1 --port 8080 -ngl 99 -c 8192 -a hunyuan-mt
+```
+
+### Hunyuan-MT-7B 模型介绍
+
+**官方链接**: https://huggingface.co/tencent/Hunyuan-MT-7B
 
 **模型架构**:
-- 类型: Decoder-only Transformer
-- 参数规模: 7B (70亿参数)
-- 上下文长度: 131,072 tokens
-- 语言: 多语言（含中英文）
+- 类型: Decoder-only Transformer (hunyuan-dense)
+- 参数规模: 7B (70亿参数)，此处使用 Q4_K_M GGUF 量化
+- 语言: 支持 33 种语言互译（含中英日韩等）
 
 **性能特点**:
-- 优秀的中英文理解与生成能力
-- 指令遵循能力强
-- 适合内容生成和翻译任务
-- GGUF 量化版在消费级硬件上推理速度快
+- 专用机器翻译模型，翻译质量高
+- GGUF 量化 + llama.cpp CUDA 加速，消费级显卡可跑
+- 偏好完整句子输入，逐条 1:1 翻译最稳定
 
-**字幕翻译优势**:
-- 中文表达更地道自然
-- 专有名词处理更智能
-- 能理解上下文语境
+**字幕翻译用法**:
+- 官方推荐 prompt：`Translate the following segment into Chinese, without additional explanation.`
+- `llm.py` 默认逐条翻译（CONTEXT_SIZE=0），保证时间轴 1:1 对齐
+
 
 ---
 
@@ -268,7 +279,7 @@ python translate.py --lang=ja video.ass
 
 输出: `video_en_bilingual.ass`
 
-#### 方式二：LM Studio 千问翻译（质量好）
+#### 方式二：llama.cpp Hunyuan-MT 翻译（质量好）
 
 ```bash
 # 翻译英文字幕
@@ -281,7 +292,7 @@ python llm.py --lang=ja video.ass
 python llm.py
 ```
 
-输出: `video_en_llm.ass`
+输出: `video.ass`（双语）
 
 ### 支持语言
 
@@ -321,15 +332,14 @@ python llm.py
 | `create_bilingual_ass()` | 创建双语 ASS |
 | `create_bilingual_vtt()` | 创建双语 VTT |
 
-### llm.py (LM Studio)
+### llm.py (llama.cpp + Hunyuan-MT)
 
 | 函数 | 说明 |
 |------|------|
-| `translate_batch(blocks, source_lang, target_lang)` | 调用 LM Studio API 批量翻译 |
+| `translate_with_context(english_text, prev_pairs, idx, total, target_name)` | 调用 llama.cpp API 翻译单条字幕 |
 | `parse_ass(ass_path)` | 解析 ASS 文件 |
-| `parse_translations(content, total_count)` | 解析翻译结果 |
-| `create_bilingual_ass()` | 创建双语 ASS |
-| `detect_language_simple(texts)` | 简单的语言检测 |
+| `translate_ass(ass_path, target_lang)` | 翻译整个 ASS 文件并输出双语 |
+| `create_bilingual_ass()` | 创建双语 ASS（直接改写 Dialogue 行） |
 
 ### translate_nllb_official.py (备用)
 
@@ -348,15 +358,16 @@ python llm.py
 my-trans/
 ├── transcribe.py              # 语音识别（faster-whisper）
 ├── translate.py               # NLLB 翻译（CTranslate2）
-├── llm.py                     # LM Studio 千问翻译（质量优先）
+├── llm.py                     # llama.cpp + Hunyuan-MT 翻译（质量优先）
 ├── translate_nllb_official.py # NLLB 翻译（Transformers 备用）
 ├── my_whisper.py              # OpenAI Whisper 字幕生成
 ├── download_models.py         # 模型下载工具
+├── start_server.sh            # 启动 llama.cpp 翻译服务
 ├── res/                       # 原始文件目录
 │   ├── video.mp4              # 视频文件
 │   └── video_en.ass           # 英文字幕
 └── output/                    # 输出文件目录
-    └── video_en_llm.ass       # 双语字幕
+    └── video.ass              # 双语字幕
 ```
 
 ---
@@ -381,20 +392,22 @@ pip install huggingface_hub==0.16.4
 pip install tokenizers==0.14.0
 ```
 
-#### LM Studio 翻译依赖
+#### llama.cpp 翻译依赖
 ```bash
 pip install requests
+# 本地 llama.cpp 服务端（Hunyuan-MT GGUF 模型）
+# /opt/llama.cpp/build/bin/llama-server
 ```
 
 ---
 
 ## 字体配置
 
-默认使用 **LXGW WenKai** 字体。
+默认使用 **仓耳今楷02** 字体。
 
-**Windows 安装**:
-1. 下载 LXGW WenKai 字体：https://github.com/lxgw/LxgwWenKai
-2. 安装到系统
+**安装**:
+1. 下载仓耳今楷02 字体（TsangerJinKai02）
+2. 安装到系统（Linux: 复制到 `~/.local/share/fonts/` 后执行 `fc-cache -f`）
 
 **字幕样式**:
 | 样式 | 字号 |
@@ -415,8 +428,8 @@ pip install requests
 # 方式一：NLLB 离线翻译（快速预览）
 视频.mp4 → transcribe.py → 视频_en.ass → translate.py → 视频_en_bilingual.ass
 
-# 方式二：LM Studio 千问翻译（质量精翻）
-视频.mp4 → transcribe.py → 视频_en.ass → llm.py → 视频_en_llm.ass
+# 方式二：llama.cpp Hunyuan-MT 翻译（质量精翻）
+视频.mp4 → transcribe.py → 视频_en.ass → llm.py → 视频.ass
 ```
 
 ### 核心模型
@@ -425,14 +438,14 @@ pip install requests
 |------|------|------|
 | 语音识别 | faster-whisper-large-v3 | OpenAI Whisper 的 CTranslate2 优化版 |
 | 离线翻译 | NLLB-200-3.3B-ct2 | Meta 多语言翻译模型，支持 200+ 语言 |
-| 在线翻译 | Qwen2.5-7B-Instruct | 阿里千问，中文优化 |
+| 本地翻译 | Hunyuan-MT-7B-Q4_K_M | 腾讯混元翻译专用模型，llama.cpp + CUDA |
 
 ### 技术栈
 
 - **faster-whisper**: 基于 CTranslate2 的 Whisper 推理加速
 - **CTranslate2**: 高性能 Transformer 推理引擎
 - **transformers**: Hugging Face 模型库
-- **LM Studio**: 本地 LLM 服务（OpenAI 兼容 API）
+- **llama.cpp**: 本地 LLM/MT 推理服务（OpenAI 兼容 API + CUDA）
 
 ---
 
@@ -443,11 +456,19 @@ pip install requests
 | 需求与开发 | OpenCode | AI 编程助手 |
 | 语音识别 | faster-whisper | OpenAI Whisper 的 CTranslate2 优化版 |
 | 离线翻译 | CTranslate2 + NLLB | 高性能 Transformer 推理引擎 |
-| 在线翻译 | LM Studio + Qwen2.5 | 本地 LLM，中文优化 |
+| 本地翻译 | llama.cpp + Hunyuan-MT | 腾讯翻译模型，CUDA 加速 |
 
 ---
 
 ## LLM 翻译字幕：窗口滑动翻译算法
+
+> **模型差异说明**
+>
+> 该窗口滑动算法最初针对**通用指令模型**（如 Qwen2.5）设计，对完整句字幕效果良好。
+> 当前默认模型为**腾讯 Hunyuan-MT-7B**（专用翻译模型），其对碎片化字幕会“自作主张”补全句子，
+> 一旦传入前文上下文（无论放在 user 还是 system 消息），容易产生**跨行重复/错位**。
+> 因此 `llm.py` 默认 `CONTEXT_SIZE=0`（逐条 1:1 翻译），最稳定。
+> 如需启用上下文，设置 `CONTEXT_SIZE>0`，并建议配合**人工校对后的完整句字幕**。
 
 ### 问题背景
 

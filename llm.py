@@ -1,7 +1,14 @@
 #!/usr/bin/env python3
 """
-使用 LM Studio (Qwen2.5-7B) 翻译 ASS 字幕
-滑动窗口上下文方案：每条翻译时参考前3条的中文译文
+使用本地 llama.cpp (Hunyuan-MT-7B) 翻译 ASS 字幕
+
+Hunyuan-MT 是专用翻译模型，偏好完整句子；对字幕碎片逐条翻译时保持
+1:1 对齐最稳定（CONTEXT_SIZE=0 默认）。若开启窗口上下文
+（CONTEXT_SIZE>0），前 N 条原文+译文会作为 system 参考传入，
+但实测可能引入重复，建议配合人工校对后的完整句字幕使用。
+
+启动服务:
+  bash start_server.sh
 """
 
 import warnings
@@ -13,9 +20,26 @@ import time
 import sys
 from pathlib import Path
 
-LLMS_HOST = "http://192.168.124.3:11434/v1"
-MODEL = "qwen2.5-7b-instruct"
-CONTEXT_SIZE = 2
+LLMS_HOST = "http://127.0.0.1:8080/v1"
+MODEL = "hunyuan-mt"
+CONTEXT_SIZE = 0
+
+TARGET_LANG_NAMES = {
+    'zh': 'Chinese',
+    'en': 'English',
+    'ja': 'Japanese',
+    'ko': 'Korean',
+    'fr': 'French',
+    'de': 'German',
+    'es': 'Spanish',
+    'ru': 'Russian',
+    'it': 'Italian',
+    'pt': 'Portuguese',
+    'ar': 'Arabic',
+    'th': 'Thai',
+    'vi': 'Vietnamese',
+    'id': 'Indonesian',
+}
 
 def format_elapsed(seconds):
     if seconds < 60:
@@ -46,28 +70,30 @@ def parse_ass(ass_path):
     
     return header, dialogue_lines
 
-def translate_with_context(english_text, prev_translations, idx, total):
-    context = ""
-    if prev_translations:
-        context = "[参考]\n" + "\n".join(prev_translations) + "\n"
-    
-    prompt = f"""{context}
+def translate_with_context(english_text, prev_pairs, idx, total, target_name="Chinese"):
+    messages = []
+    if prev_pairs:
+        context = "\n".join(f"{src} => {trans}" for src, trans in prev_pairs)
+        messages.append({
+            "role": "system",
+            "content": "Previous subtitle context (for reference only, do not translate):\n" + context
+        })
 
-只翻译这一句（不要多译，不要漏译）：
-
-{english_text}
-
-输出中文："""
+    messages.append({
+        "role": "user",
+        "content": f"Translate the following segment into {target_name}, "
+                   f"without additional explanation.\n\n{english_text}"
+    })
 
     payload = {
         "model": MODEL,
-        "messages": [{"role": "user", "content": prompt}],
+        "messages": messages,
         "max_tokens": 1024,
         "temperature": 0
     }
     
     try:
-        response = requests.post(f"{LLMS_HOST}/chat/completions", json=payload, timeout=60)
+        response = requests.post(f"{LLMS_HOST}/chat/completions", json=payload, timeout=120)
         response.raise_for_status()
         result = response.json()
         content = result["choices"][0]["message"]["content"].strip()
@@ -76,8 +102,9 @@ def translate_with_context(english_text, prev_translations, idx, total):
         print(f"    错误: {e}")
         return None
 
-def translate_ass(ass_path):
+def translate_ass(ass_path, target_lang='zh'):
     ass_path = Path(ass_path)
+    target_name = TARGET_LANG_NAMES.get(target_lang, target_lang)
     
     print(f"读取字幕: {ass_path.name}")
     
@@ -87,7 +114,11 @@ def translate_ass(ass_path):
     header, dialogue_lines = parse_ass(ass_path)
     
     print(f"共 {len(dialogue_lines)} 条字幕")
-    print(f"上下文窗口: 前{CONTEXT_SIZE}条译文")
+    print(f"目标语言: {target_name} ({target_lang})")
+    if CONTEXT_SIZE > 0:
+        print(f"上下文窗口: 前{CONTEXT_SIZE}条(原文+译文)")
+    else:
+        print("上下文窗口: 关闭 (逐条 1:1 翻译)")
     print()
     
     texts = []
@@ -103,24 +134,27 @@ def translate_ass(ass_path):
     start_time = time.time()
     
     translations = []
-    prev_translations = []
+    prev_pairs = []
     
     for i, text in enumerate(texts):
         if i % 10 == 0 or i == len(texts) - 1:
             print(f"  翻译 {i+1}/{len(texts)}...")
         
-        trans = translate_with_context(text, prev_translations, i+1, len(texts))
+        trans = translate_with_context(text, prev_pairs, i+1, len(texts), target_name)
         
         if trans:
             translations.append(trans)
-            prev_translations.append(trans)
-            if len(prev_translations) > CONTEXT_SIZE:
-                prev_translations = prev_translations[-CONTEXT_SIZE:]
+            prev_pairs.append((text, trans))
         else:
             translations.append(text)
-            prev_translations.append(text)
+            prev_pairs.append((text, text))
+
+        if CONTEXT_SIZE > 0:
+            prev_pairs = prev_pairs[-CONTEXT_SIZE:]
+        else:
+            prev_pairs = []
         
-        time.sleep(0.1)
+        time.sleep(0.05)
     
     elapsed = time.time() - start_time
     print(f"\n翻译耗时: {format_elapsed(elapsed)}")
@@ -169,14 +203,27 @@ def translate_ass(ass_path):
 
 def main():
     args = sys.argv[1:]
-    
+    target_lang = 'zh'
+
+    if '--lang=' in str(args):
+        for arg in args:
+            if arg.startswith('--lang='):
+                target_lang = arg.replace('--lang=', '')
+                args = [a for a in args if a != arg]
+                break
+    elif '--lang' in args:
+        idx = args.index('--lang')
+        if idx + 1 < len(args):
+            target_lang = args[idx + 1]
+            args = args[:idx] + args[idx + 2:]
+
     if not args:
         current_dir = Path(".")
         ass_files = list(current_dir.glob("*.ass")) + list(current_dir.glob("*.ASS"))
         
         if not ass_files:
             print("用法: python llm.py 字幕.ass")
-            print(f"LM Studio: {LLMS_HOST}")
+            print(f"llama.cpp 服务: {LLMS_HOST}")
             print("当前目录没有找到 ASS 文件")
             return
         
@@ -193,7 +240,7 @@ def main():
     for ass_path in ass_files:
         print()
         print("=" * 60)
-        translate_ass(ass_path)
+        translate_ass(ass_path, target_lang=target_lang)
 
 if __name__ == "__main__":
     main()
