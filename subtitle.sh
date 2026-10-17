@@ -101,14 +101,16 @@ for v in "${files[@]}"; do
     src="$(ls -t "${produced[@]}" | head -1)"
   fi
 
-  # ②' 日语：用社区幻觉正则做安全清洗（音效括号/片尾/拟声等）
-  case "$src" in
-    *_ja.ass)
-      if [ -f "$HERE/clean_ja.py" ] && command -v python3 >/dev/null 2>&1; then
-        python3 "$HERE/clean_ja.py" "$src" || echo "  ! clean_ja 失败，跳过清洗" >&2
-      fi
-      ;;
-  esac
+  # ②' 可选：日语幻觉正则清洗（默认关闭，避免误删真台词；SUB_CLEAN_JA=1 开启）
+  if [ "${SUB_CLEAN_JA:-0}" = 1 ]; then
+    case "$src" in
+      *_ja.ass)
+        if [ -f "$HERE/clean_ja.py" ] && command -v python3 >/dev/null 2>&1; then
+          python3 "$HERE/clean_ja.py" "$src" || echo "  ! clean_ja 失败，跳过清洗" >&2
+        fi
+        ;;
+    esac
+  fi
 
   # ③ 翻译成双语（输出与视频同名的 <base>.ass，VLC 打开视频时自动加载）
   echo ">>> [3/3] translate: $src"

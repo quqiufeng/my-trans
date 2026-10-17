@@ -499,8 +499,9 @@ my-trans/
 | `WHISPER_VAD_THRESHOLD` | 语音概率阈值 | `0.5` |
 | `WHISPER_MAX_SEG_SEC` | 丢弃长于该秒数的段（仅去接近整窗的填充伪影） | `25` |
 | `WHISPER_LOGPROB_THRESHOLD` | 与 `no_speech` 配合：仅“无语音概率高且置信度低于此值”才丢窗，避免误删真实对白 | `-1.0` |
-| `WHISPER_MAX_CHAR_RUN` | 同一字连续重复≥该值判为复读幻觉并丢弃（`0` 关） | `4` |
+| `WHISPER_MAX_CHAR_RUN` | 同一字连续重复≥该值才丢弃（默认关，避免误删真实发声） | `0`（关） |
 | `WHISPER_DROP_PHRASES` | 可选：幻觉短语黑名单（逗号分隔；**默认空=不删**） | 空（关闭） |
+| `SUB_CLEAN_JA` | 生成后运行 clean_ja.py 社区正则清洗（音效/片尾，默认关） | `0`（关） |
 | `WHISPER_PROFILE` | 非空则打印分段耗时 | 关 |
 
 > 默认**不做**短语黑名单：仅凭文本无法区分「真的说了」与幻觉，误删真台词不可接受。
