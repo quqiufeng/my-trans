@@ -475,22 +475,23 @@ my-trans/
 
 | 功能 | 模型 | 说明 |
 |------|------|------|
-| 语音识别 | Whisper **large-v3 / kotoba**（CT2） | CTranslate2 C++ 引擎 + 自写 log-mel 前端，编译为独立二进制 |
+| 语音识别 | Whisper **large-v3 / whisper-ja-1.5B**（CT2） | CTranslate2 C++ 引擎 + 自写 log-mel 前端，编译为独立二进制 |
 | 字幕翻译 | Hunyuan-MT-7B-Q4_K_M | 腾讯混元翻译专用模型，llama.cpp + CUDA |
 
 ### 语音识别模型
 
-- **`large-v3`（默认，含日语）**：完整模型，多语言；质量最好但较慢。
-  实测对有 BGM 的日语正常对白明显比蒸馏版稳（kotoba 会编出 `今日の天気は晴れ` 等）。
-- **`kotoba-whisper-v2.0`（可选，快速日语）**：2 层 decoder 蒸馏，约 6× 快；
-  干净音频可用，但**有背景音时幻觉明显更多**，仅作快速预览。
+- **`large-v3`（默认，非日语）**：完整多语言模型。
+- **`whisper-ja-1.5B-ct2`（默认，日语）**：社区 large-v3 日语微调（`efwkjn/whisper-ja-1.5B`）。
+  WhisperJAV 场景测试中明显优于 large-v3/kotoba，正文召回与连贯性更好。
+  仍会有少量开头/音效段幻觉，由文本过滤兜底。
+- **`kotoba-whisper-v2.0`（可选，快速）**：2 层蒸馏，约 6× 快；有背景音时幻觉更多。
 
 **环境变量**（`transcribe.sh` / `subtitle.sh` 均适用）：
 
 | 变量 | 说明 | 默认 |
 |------|------|------|
 | `WHISPER_MODEL_DIR` | 多语言模型目录 | `/data/models/faster-whisper-large-v3` |
-| `WHISPER_MODEL_DIR_JA` | 日语模型目录（默认与其他语言相同；可设 kotoba 快速版） | `/data/models/faster-whisper-large-v3` |
+| `WHISPER_MODEL_DIR_JA` | 日语模型目录（可设 kotoba 快速版） | `/data/models/whisper-ja-1.5B-ct2` |
 | `WHISPER_CHUNK_SEC` | 解码窗长（秒）；kotoba/distil 系建议 `15` | `30` |
 | `WHISPER_BEAM` | 束搜索宽度（1=贪心，略快） | `5` |
 | `WHISPER_DEVICE` | 设为 `cpu` 强制 CPU | CUDA/FP16 |
@@ -526,7 +527,7 @@ my-trans/
 | 角色 | 工具 | 说明 |
 |------|------|------|
 | 需求与开发 | OpenCode | AI 编程助手 |
-| 语音识别 | StaticPy + CTranslate2 | CTranslate2 C++ Whisper（默认 large-v3；kotoba 可选快速版），自写 log-mel 前端 |
+| 语音识别 | StaticPy + CTranslate2 | CTranslate2 C++ Whisper（多语言 large-v3；日语 whisper-ja-1.5B），自写 log-mel 前端 |
 | 字幕翻译 | StaticPy + llama.cpp + Hunyuan-MT | 腾讯翻译模型，CUDA 加速 |
 
 ---
