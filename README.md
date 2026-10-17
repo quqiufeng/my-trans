@@ -248,7 +248,7 @@ curl -T video.ass -u "$WEBDAV_USER:$WEBDAV_PASS" "http://192.168.1.53:5005/.../v
 vlc "http://用户名:密码@192.168.1.53:5005/.../video.mp4"
 ```
 
-### 实测耗时（RTX 3080，Whisper turbo + Hunyuan-MT）
+### 实测耗时（RTX 3080，Whisper + Hunyuan-MT）
 
 | 视频 | 时长 | 大小 | 抽音轨 | 转写 | 翻译 | 总计 | 折合 |
 |------|------|------|--------|------|------|------|------|
@@ -475,21 +475,20 @@ my-trans/
 
 | 功能 | 模型 | 说明 |
 |------|------|------|
-| 语音识别 | Whisper **large-v3-turbo**（CT2） | CTranslate2 C++ 引擎 + 自写 log-mel 前端，编译为独立二进制 |
+| 语音识别 | Whisper **large-v3 / kotoba**（CT2） | CTranslate2 C++ 引擎 + 自写 log-mel 前端，编译为独立二进制 |
 | 字幕翻译 | Hunyuan-MT-7B-Q4_K_M | 腾讯混元翻译专用模型，llama.cpp + CUDA |
 
 ### 语音识别模型
 
-- **`large-v3`（默认）**：完整模型，**日语等非英语质量最好**（turbo 的日语常整段听错/幻觉）。
-  推理较慢（约为 turbo 的 3~4×），RTX 3080 仍可接受。
-- **`large-v3-turbo`**：encoder 同 large-v3、decoder 仅 4 层，推理快约 **3×**
-  （实测 145s 音频 1.75s），但**非英语质量明显下降**，仅建议英语/追求速度时用。
+- **`large-v3`（默认，非日语）**：完整模型，多语言；质量好但较慢。
+- **`kotoba-whisper-v2.0`（日语）**：日语专用蒸馏模型，检测/强制为日语时自动使用；
+  2 层 decoder，约 6× 快，且日语质量优于 large-v3。
 
 **环境变量**（`transcribe.sh` / `subtitle.sh` 均适用）：
 
 | 变量 | 说明 | 默认 |
 |------|------|------|
-| `WHISPER_MODEL_DIR` | 模型目录（`…-turbo` 可切回快速版） | `/data/models/faster-whisper-large-v3` |
+| `WHISPER_MODEL_DIR` | 多语言模型目录 | `/data/models/faster-whisper-large-v3` |
 | `WHISPER_MODEL_DIR_JA` | 日语专用模型目录（检测/强制为日语时自动切换） | `/data/models/kotoba-whisper-v2-faster` |
 | `WHISPER_CHUNK_SEC` | 解码窗长（秒）；kotoba/distil 系建议 `15` | `30` |
 | `WHISPER_BEAM` | 束搜索宽度（1=贪心，略快） | `5` |
@@ -511,24 +510,6 @@ my-trans/
 > 缺任一则自动降级为无 VAD。`subtitle.sh` / `nas_subtitle.sh` 可用 `--src-lang=ja`
 > 强制源语言；`transcribe.sh` 直接用 `WHISPER_LANG=ja bash transcribe.sh …`。
 
-### 人声分离前处理（Demucs）
-
-对白被很响的 BGM/环境音盖住（信噪比低）时，可选先用 **Demucs** 分离出纯人声
-（`<名字>.vocals.wav`，缓存复用）再送去 Whisper。**默认关闭**（`--separate` 开启）。
-
-**环境变量 / 参数**（`subtitle.sh` / `nas_subtitle.sh` 适用）：
-
-| 变量 | 说明 | 默认 |
-|------|------|------|
-| `SUB_SEPARATE` | 设为 `1` 开启人声分离（或用 `--separate`） | `0`（关） |
-| `SUB_PYTHON` | 跑 Demucs 的解释器（需含 torch/demucs） | `/data/venv/bin/python` |
-| `SUB_DEMUCS_MODEL` | Demucs 模型名 | `htdemucs` |
-| `SUB_SEPARATE_CHUNK` | 分离分块秒数（长音频整段载入会 OOM，按块分离后拼接） | `600` |
-
-也可用 `--separate` 单次开启。解释器缺 `demucs` 时自动降级为不分离。
-
-> 安装（一次性）：`/data/venv/bin/pip install demucs sphn julius lameenc dora-search`。
-
 ### 技术栈
 
 - **CTranslate2 (C++)**：Whisper 语音识别，StaticPy 编译成独立二进制
@@ -543,7 +524,7 @@ my-trans/
 | 角色 | 工具 | 说明 |
 |------|------|------|
 | 需求与开发 | OpenCode | AI 编程助手 |
-| 语音识别 | StaticPy + CTranslate2 | CTranslate2 C++ Whisper（默认 large-v3-turbo），自写 log-mel 前端 |
+| 语音识别 | StaticPy + CTranslate2 | CTranslate2 C++ Whisper（默认 large-v3，日语 kotoba），自写 log-mel 前端 |
 | 字幕翻译 | StaticPy + llama.cpp + Hunyuan-MT | 腾讯翻译模型，CUDA 加速 |
 
 ---

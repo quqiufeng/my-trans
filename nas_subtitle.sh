@@ -10,7 +10,6 @@
 #   nas_subtitle.sh "/sata11-.../video.mp4" --lang=ja      # 目标语言（默认 zh）
 #   nas_subtitle.sh "/sata11-.../video.mp4" --src-lang=ja  # 强制源语言（跳过自动检测）
 #   nas_subtitle.sh "/sata11-.../video.mp4" --offset=0.3   # 透传给转写的时间偏移
-#   nas_subtitle.sh "/sata11-.../video.mp4" --no-separate  # 关闭 Demucs 人声分离（默认开启）
 #   nas_subtitle.sh "/sata11-.../video.mp4" --no-vlc       # 只生成字幕，不打开 VLC
 #   nas_subtitle.sh "/sata11-.../video.mp4" --dry-run      # 只解析 URL，不实际处理
 #
