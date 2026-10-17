@@ -96,7 +96,7 @@ echo "    PUT -> HTTP $code"
 # --- 流式打开 VLC 播放 ---
 if [ "$OPEN_VLC" = 1 ]; then
   echo ">>> 打开 VLC 播放（NAS 流式）..."
-  pkill -f "vlc " 2>/dev/null || true
+  pkill -x vlc 2>/dev/null || true
   sleep 1
   DISPLAY="${DISPLAY:-:0}" setsid vlc --sub-file="$ass" "$AUTH" >/dev/null 2>&1 </dev/null &
   disown 2>/dev/null || true

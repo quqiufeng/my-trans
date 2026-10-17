@@ -86,20 +86,28 @@ for v in "${files[@]}"; do
   echo ">>> [2/3] transcribe: $audio"
   targs=()
   [ -n "$offset" ] && targs+=("--offset=$offset")
-  bash "$HERE/transcribe.sh" "${targs[@]}" "$audio"
-
-  shopt -s nullglob
-  produced=( "${base}"_*.ass )
-  shopt -u nullglob
-  if [ ${#produced[@]} -eq 0 ]; then
-    echo "  ! 未找到转写产物 ${base}_*.ass，跳过翻译"
-    continue
+  tr_out="$(bash "$HERE/transcribe.sh" "${targs[@]}" "$audio")"
+  printf '%s\n' "$tr_out"
+  # transcribe 输出形如: "  x.wav  [ja] -> x_ja.ass (123 条)"
+  src="$(printf '%s\n' "$tr_out" | sed -n 's/.* -> \(.*\.ass\) ([0-9][0-9]* 条)$/\1/p' | tail -1)"
+  if [ -z "$src" ] || [ ! -f "$src" ]; then
+    shopt -s nullglob
+    produced=( "${base}"_*.ass )
+    shopt -u nullglob
+    if [ ${#produced[@]} -eq 0 ]; then
+      echo "  ! 未找到转写产物 ${base}_*.ass，跳过翻译"
+      continue
+    fi
+    src="$(ls -t "${produced[@]}" | head -1)"
   fi
-  src="$(ls -t "${produced[@]}" | head -1)"   # 取最新生成的
 
   # ②' 日语：用社区幻觉正则做安全清洗（音效括号/片尾/拟声等）
   case "$src" in
-    *_ja.ass) [ -f "$HERE/clean_ja.py" ] && python3 "$HERE/clean_ja.py" "$src" || true ;;
+    *_ja.ass)
+      if [ -f "$HERE/clean_ja.py" ] && command -v python3 >/dev/null 2>&1; then
+        python3 "$HERE/clean_ja.py" "$src" || echo "  ! clean_ja 失败，跳过清洗" >&2
+      fi
+      ;;
   esac
 
   # ③ 翻译成双语（输出与视频同名的 <base>.ass，VLC 打开视频时自动加载）
