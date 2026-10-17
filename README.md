@@ -494,10 +494,11 @@ my-trans/
 | `WHISPER_BEAM` | 束搜索宽度（1=贪心，略快） | `5` |
 | `WHISPER_DEVICE` | 设为 `cpu` 强制 CPU | CUDA/FP16 |
 | `WHISPER_LANG` | 强制源语言（`ja`/`zh`/`en`…），跳过自动检测 | 自动 |
-| `WHISPER_VAD` | 设为 `0` 关闭 Silero VAD 语音门控 | 开 |
+| `WHISPER_VAD` | VAD 语音门控：`1`/`0` 强制开关；未设则**仅日语开**（其它语言关，避免误删轻声对白） | 按语言 |
 | `WHISPER_VAD_MODEL` | VAD 模型路径 | `/data/models/silero-vad/silero_vad.onnx` |
 | `WHISPER_VAD_THRESHOLD` | 语音概率阈值 | `0.5` |
-| `WHISPER_MAX_SEG_SEC` | 丢弃长于该秒数的段（整窗填充伪影） | `15` |
+| `WHISPER_MAX_SEG_SEC` | 丢弃长于该秒数的段（仅去接近整窗的填充伪影） | `25` |
+| `WHISPER_LOGPROB_THRESHOLD` | 与 `no_speech` 配合：仅“无语音概率高且置信度低于此值”才丢窗，避免误删真实对白 | `-1.0` |
 | `WHISPER_MAX_CHAR_RUN` | 同一字连续重复≥该值判为复读幻觉并丢弃（`0` 关） | `4` |
 | `WHISPER_DROP_PHRASES` | 幻觉短语黑名单（逗号分隔，覆盖默认；`-` 关闭） | 见表下 |
 | `WHISPER_PROFILE` | 非空则打印分段耗时 | 关 |
