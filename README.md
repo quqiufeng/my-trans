@@ -513,20 +513,19 @@ my-trans/
 
 ### 人声分离前处理（Demucs）
 
-对白被很响的 BGM/环境音盖住（信噪比低）时，VAD 只能去掉纯静音，盖住人声的部分
-仍会大量**复读/错听幻觉**。默认在送识别前先用 **Demucs** 分离出纯人声
-（`<名字>.vocals.wav`，缓存复用），再送去 Whisper，可显著降低幻觉并修正错字。
+对白被很响的 BGM/环境音盖住（信噪比低）时，可选先用 **Demucs** 分离出纯人声
+（`<名字>.vocals.wav`，缓存复用）再送去 Whisper。**默认关闭**（`--separate` 开启）。
 
 **环境变量 / 参数**（`subtitle.sh` / `nas_subtitle.sh` 适用）：
 
 | 变量 | 说明 | 默认 |
 |------|------|------|
-| `SUB_SEPARATE` | 设为 `0` 关闭人声分离 | `1`（开） |
+| `SUB_SEPARATE` | 设为 `1` 开启人声分离（或用 `--separate`） | `0`（关） |
 | `SUB_PYTHON` | 跑 Demucs 的解释器（需含 torch/demucs） | `/data/venv/bin/python` |
 | `SUB_DEMUCS_MODEL` | Demucs 模型名 | `htdemucs` |
 | `SUB_SEPARATE_CHUNK` | 分离分块秒数（长音频整段载入会 OOM，按块分离后拼接） | `600` |
 
-也可用 `--no-separate` 单次关闭。解释器缺 `demucs` 时自动降级为不分离。
+也可用 `--separate` 单次开启。解释器缺 `demucs` 时自动降级为不分离。
 
 > 安装（一次性）：`/data/venv/bin/pip install demucs sphn julius lameenc dora-search`。
 
