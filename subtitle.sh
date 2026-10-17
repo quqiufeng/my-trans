@@ -97,6 +97,11 @@ for v in "${files[@]}"; do
   fi
   src="$(ls -t "${produced[@]}" | head -1)"   # 取最新生成的
 
+  # ②' 日语：用社区幻觉正则做安全清洗（音效括号/片尾/拟声等）
+  case "$src" in
+    *_ja.ass) [ -f "$HERE/clean_ja.py" ] && python3 "$HERE/clean_ja.py" "$src" || true ;;
+  esac
+
   # ③ 翻译成双语（输出与视频同名的 <base>.ass，VLC 打开视频时自动加载）
   echo ">>> [3/3] translate: $src"
   bash "$HERE/translate.sh" --lang="$lang" --out="${base}.ass" "$src"
