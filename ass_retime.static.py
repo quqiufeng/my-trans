@@ -14,6 +14,7 @@ MIN_GAP: float = 0.30  # 静音超过 300ms 算换句
 LEAD: float = 0.06     # 字幕比开口早一点点
 TAIL: float = 0.12     # 说完留一点尾巴
 SNAP: float = 0.40     # 吸附上限
+REACH: float = 2.5     # 边界落在静音里时，向前/向后找最近发声点的最大距离
 MINRUN: int = 8        # 短于 8 帧(0.08s)的发声段不参与吸附
 BINS: int = 4096
 
@@ -235,6 +236,38 @@ def snap_run(o: list[int], cnt: int, t: float, side: int, limit: float) -> float
     return best
 
 
+def next_onset(o: list[int], cnt: int, t: float, limit: float) -> float:
+    "t 之后（-0.05 容差）最近的一个发声段起点；超出 limit 返回 -1"
+    best: float = -1.0
+    i: int = 0
+    while i < cnt:
+        a: int = int_array_ref(o, i * 2)
+        b: int = int_array_ref(o, i * 2 + 1)
+        if b - a >= MINRUN:
+            v: float = float(a) * HOP
+            if v >= t - 0.05 and v - t <= limit:
+                if best < 0.0 or v < best:
+                    best = v
+        i = i + 1
+    return best
+
+
+def prev_offset(o: list[int], cnt: int, t: float, limit: float) -> float:
+    "t 之前（+0.05 容差）最近的一个发声段终点；超出 limit 返回 -1"
+    best: float = -1.0
+    i: int = 0
+    while i < cnt:
+        a: int = int_array_ref(o, i * 2)
+        b: int = int_array_ref(o, i * 2 + 1)
+        if b - a >= MINRUN:
+            v: float = float(b + 1) * HOP
+            if v <= t + 0.05 and t - v <= limit:
+                if v > best:
+                    best = v
+        i = i + 1
+    return best
+
+
 def median_of(v: list[float], n: int) -> float:
     "近似中位数（桶细分够用）"
     mn: float = float_array_ref(v, 0)
@@ -365,29 +398,41 @@ def retime(ass: str, wav: str, dry: int) -> int:
                 ne = lim
         if ne < ns + 0.5:
             ne = ns + 0.5
-        # 兜底：边界不能落在静音上
+        # 兜底：起点不能落在静音里 —— 优先向前找真正的开口点（Whisper 常把句首
+        # 静音一并算进段时间，导致字幕提前几百毫秒蹦出来），找不到再用就近发声帧
         ii: int = int(round(ns / HOP))
         if ii >= 0 and ii < nfr and int_array_ref(m, ii) == 0:
-            v: float = nearest_voice(m, nfr, ns, 0.8)
-            if v >= 0.0 and abs(v - ns) <= 0.6:
-                ns = v - LEAD
-                if ns < prev + 0.02:
-                    ns = prev + 0.02
+            lim_s: float = 0.0
+            if j + 1 < nraw:
+                lim_s = float_array_ref(raw_s, j + 1) - 0.05
+            vn: float = next_onset(o, cnt, ns, REACH)
+            if vn >= 0.0 and (lim_s <= 0.0 or vn <= lim_s):
+                ns = vn - LEAD
+            else:
+                v: float = nearest_voice(m, nfr, ns, 0.8)
+                if v >= 0.0 and abs(v - ns) <= 0.6:
+                    ns = v - LEAD
+            if ns < prev + 0.02:
+                ns = prev + 0.02
         ie: int = int(round(ne / HOP))
         if ie > nfr - 1:
             ie = nfr - 1
         if ie >= 0 and int_array_ref(m, ie) == 0:
-            v2: float = nearest_voice(m, nfr, ne, 0.8)
-            if v2 >= 0.0 and abs(v2 - ne) <= 0.6:
-                ne = v2 + TAIL
+            vp: float = prev_offset(o, cnt, ne, REACH)
+            if vp >= 0.0 and vp > ns + 0.2:
+                ne = vp + TAIL
+            else:
+                v2: float = nearest_voice(m, nfr, ne, 0.8)
+                if v2 >= 0.0 and abs(v2 - ne) <= 0.6:
+                    ne = v2 + TAIL
         if ne < ns + 0.5:
             ne = ns + 0.5
         if ns < st - 0.65:
             ns = st - 0.65
-        if ns > st + 0.65:
-            ns = st + 0.65
-        if ne < en - 0.65:
-            ne = en - 0.65
+        if ns > st + REACH + 0.2:
+            ns = st + REACH + 0.2
+        if ne < en - REACH - 0.2:
+            ne = en - REACH - 0.2
         if ne > en + 0.65:
             ne = en + 0.65
         if ne < ns + 0.4:
