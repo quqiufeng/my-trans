@@ -20,10 +20,22 @@ local function chars(s)
     return n
 end
 
+local function exists(p)
+    local f = io.open(p, "r"); if f then f:close(); return true end
+    return false
+end
+
 local function readfile(p)
     local f = assert(io.open(p, "r"), "打不开: " .. p)
     local s = f:read("*a"); f:close()
     return s
+end
+
+-- 缺文件时给可执行的下一步，而不是裸 assert
+local function die(msg, hint)
+    io.stderr:write("错误: " .. msg .. "\n")
+    if hint then io.stderr:write(hint:gsub("\n", "\n") .. "\n") end
+    os.exit(1)
 end
 
 local function trim(s) return (s:gsub("^%s+", ""):gsub("%s+$", "")) end
@@ -273,12 +285,31 @@ if arg and arg[0] and arg[0]:match("match%.lua$") then
         else i = i + 1 end
     end
     if not o.text or not o.shot then
-        io.stderr:write("缺 --text / --shot\n"); os.exit(1)
+        die("缺 --text / --shot",
+            "用法: lua dub/match.lua --text 话术.txt --shot dub/shot/X.json [--out edl.json]")
+    end
+    if not exists(o.text) then
+        die("找不到文案：" .. o.text,
+            "项目根目录有一份模板可直接用：\n" ..
+            "  cp 话术.txt 我的文案.txt\n" ..
+            "然后传 --text 我的文案.txt。约束：总字数 ≤176、单句 ≤21 字。")
+    end
+    if not exists(o.shot) then
+        die("找不到画面阶段表：" .. o.shot,
+            "shot 文件是分析产物，不入库，每个素材都要重新生成一次：\n" ..
+            "  dub/keys.sh <视频>        # 抽关键帧拼图 + 生成 shotlist 空模板\n" ..
+            "  # 看图填 phases 后存成 dub/shot/<名字>.json\n" ..
+            "已有素材的话直接指过去：--shot dub/shot/IMG_0195.json")
     end
     local shotraw = readfile(o.shot)
     local src = shotraw:match('"src"%s*:%s*"([^"]+)"')
     local ph = parse_shot(shotraw)
-    if #ph == 0 then io.stderr:write("阶段表为空: " .. o.shot .. "\n"); os.exit(1) end
+    if #ph == 0 then
+        die("阶段表为空：" .. o.shot,
+            "文件里没有可解析的 phases 条目。模板长这样：\n" ..
+            '  {"in": 0.0, "out": 6.0, "tag": "hero", "subject": "人物特写", "quality": 4}\n' ..
+            'tag 只能取 hero / guide / both；quality 1-5 越高越优先。')
+    end
     o.src = src
     local e = M.build(readfile(o.text), ph, o)
     if e.miss > 0 then

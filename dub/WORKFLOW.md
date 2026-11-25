@@ -248,6 +248,32 @@ ls -l 成片/*.mp4
 `dub.lua` 是「文案 → 配音 → 对时长」；如果不需要 AI 配音，只要按画面剪辑 + 烧字幕，
 走 `render.sh` 这条更短的：
 
+### 先准备画面阶段表（一次性，每个素材各一份）
+
+`dub/shot/*.json` 是**分析产物，不入库**，克隆仓库后是空的。缺它时 `match.lua`
+会明确报错并打印下面这两步，不用记：
+
+```bash
+# a) 抽关键帧拼图：每 3s 一帧，9 格一张，格内烧时间戳
+dub/keys.sh ~/IMG_0195.MOV
+
+# b) 看拼图，把画面分成段落填进 phases，存成 dub/shot/IMG_0195.json
+#    每段一条：{"in": 起点秒, "out": 终点秒, "tag": "", "subject": "画面内容", "quality": 1-5}
+```
+
+输出都在**素材同级的 `keys/`** 目录（`--out DIR` 可改）：
+
+- `<名字>_keys_01.jpg`… 拼图，每格左上角烧了**绝对时间戳**（不是从 0 起）
+- `<名字>_keys.txt` 每张关键帧的**精确时间**（分段时按它对秒数，别靠眼睛估）
+- `<名字>.shotlist.json` 空模板，已经带好 `src` 和 `duration`，填 `phases` 即可
+
+所以只需把模板 `cp keys/IMG_0195.shotlist.json dub/shot/IMG_0195.json`，补完 `phases` 就能用。
+
+`keys.sh` 只切帧 + 缩小 + 拼图，**不判断内容**——分段和打分是看图的人（或 AI）来定。
+换素材就重跑一遍 `keys.sh`，不要复用旧 shot 文件。
+
+### 文案 → EDL → 成片
+
 ```bash
 # 1) 文案 → EDL（match.lua 按画面阶段窗口挑 in/out）
 luajit dub/match.lua --text 文案.txt --shot dub/shot/IMG_0195.json --out edl.json
