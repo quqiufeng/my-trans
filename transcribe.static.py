@@ -10,7 +10,7 @@ extern fn wh_to_ass(path: str, out: str, offset: double) -> int from "whisper"
 
 
 def is_video(name: str) -> int:
-    exts = str_split(".mp4,.mkv,.avi,.mov,.flv,.wmv,.m4v", ",")
+    exts = str_split(".mp4,.mkv,.avi,.mov,.flv,.wmv,.m4v,.mpg,.mpeg,.m2v,.ts,.m2ts,.webm,.vob,.3gp,.ogv,.rmvb", ",")
     j: int = 0
     m: int = list_length(exts)
     hit: int = 0
@@ -24,9 +24,26 @@ def is_video(name: str) -> int:
     return hit
 
 
+def last_dot_after_slash(s: str) -> int:
+    # 最后一个 '.' 的下标，但必须落在最后一个 '/' 之后（否则不算扩展名）
+    dot: int = -1
+    i: int = 0
+    n: int = str_length(s)
+    while i < n:
+        c: int = str_code_at(s, i)
+        if c == 46:          # '.'
+            dot = i
+        elif c == 47:        # '/'
+            dot = -1
+        i = i + 1
+    return dot
+
+
 def make_out(inp: str, lang: str) -> str:
-    n: int = str_length(inp)
-    base: str = str_slice(inp, 0, n - 4)
+    d: int = last_dot_after_slash(inp)
+    base: str = inp
+    if d > 0:
+        base = str_slice(inp, 0, d)
     return base + "_" + lang + ".ass"
 
 
@@ -76,7 +93,7 @@ def main():
         print("没有有效视频文件")
         return
 
-    t0: int = clock()
+    t0: float = clock()
     ok: int = 0
     j: int = 0
     while j < total:
@@ -87,4 +104,4 @@ def main():
         j = j + 1
 
     print("完成: " + string_of_int(ok) + "/" + string_of_int(total) +
-          "  用时 " + string_of_int(clock() - t0) + "s")
+          "  用时 " + float_fixed(clock() - t0, 1) + "s")

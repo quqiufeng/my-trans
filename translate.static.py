@@ -70,7 +70,7 @@ def main():
         print("没有字幕文件")
         return
 
-    t0: int = clock()
+    t0: float = clock()
     j: int = 0
     while j < total:
         f: str = py_list_ref(files, j)
@@ -83,5 +83,5 @@ def main():
         else:
             print("  " + f + " -> " + out + " (" + string_of_int(rc) + " 条)")
         j = j + 1
-    print("完成 " + string_of_int(total) + " 个  用时 " + string_of_int(clock() - t0) + "s")
+    print("完成 " + string_of_int(total) + " 个  用时 " + float_fixed(clock() - t0, 1) + "s")
 
