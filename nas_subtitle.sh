@@ -51,8 +51,24 @@ else
   path="$rest"                                 # 纯路径 /sata11-.../video.mp4
 fi
 
-enc()      { python3 -c 'import urllib.parse,sys;print(urllib.parse.quote(sys.argv[1],safe=""))' "$1"; }
-enc_path() { python3 -c 'import urllib.parse,sys;print(urllib.parse.quote(sys.argv[1],safe="/"))' "$1"; }
+# URL 百分号编码（纯 bash，不依赖 python）：$1=字符串 $2=额外保留字符
+urlenc() {
+  local s=$1 keep=${2-} out= c i
+  local LC_ALL=C                       # 按字节处理，多字节 UTF-8 逐字节转义
+  for (( i = 0; i < ${#s}; i++ )); do
+    c=${s:i:1}
+    case $c in
+      [A-Za-z0-9.~_-]) out+=$c ;;
+      *) case $keep in
+           *"$c"*) out+=$c ;;
+           *) printf -v c '%%%02X' "'$c"; out+=$c ;;
+         esac ;;
+    esac
+  done
+  printf '%s' "$out"
+}
+enc()      { urlenc "$1" ""; }        # 用户名/密码：斜杠也要转义
+enc_path() { urlenc "$1" "/"; }       # 路径：保留目录分隔符
 
 EPATH="$(enc_path "$path")"
 DIRU="${EPATH%/*}/"                       # 视频所在目录（用于回传字幕）

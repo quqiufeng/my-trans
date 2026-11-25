@@ -14,13 +14,16 @@ ROOT="${STATICPY_ROOT:-/opt/StaticPy}"
 # 1) C ABI 库（.so 就地留在 $ROOT/cpp/*/，运行时由 *_ffi.scm + LD_LIBRARY_PATH 加载）
 bash "$ROOT/cpp/whisper/build.sh"
 bash "$ROOT/cpp/llm/build.sh"
+bash "$HERE/cpp/asswav/build.sh" "$HERE/libasswav.so"   # 本项目自带：WAV 采样读取
 
 # 2) StaticPy AOT 编译：裸名产物目录由 STATICPY_OUTDIR 指定（工具链自带机制）
 export STATICPY_OUTDIR="$HERE"
-for app in transcribe translate; do
+for app in transcribe translate ass_retime; do
     bash "$ROOT/staticpy/static_build.sh" \
         "$HERE/$app.static.py" "$app" "$HERE/${app}_ffi.scm"
 done
 
 echo "=== 完成 ==="
-ls -l "$HERE/transcribe" "$HERE/transcribe.so" "$HERE/translate" "$HERE/translate.so"
+ls -l "$HERE/transcribe" "$HERE/transcribe.so" \
+      "$HERE/translate" "$HERE/translate.so" \
+      "$HERE/ass_retime" "$HERE/ass_retime.so" "$HERE/libasswav.so"

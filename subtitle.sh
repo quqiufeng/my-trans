@@ -6,9 +6,11 @@
 #   bash subtitle.sh 视频1.mp4 [视频2.mp4 ...]
 #   bash subtitle.sh --offset=0.3 视频.mp4
 #   bash subtitle.sh --lang=ja 视频.mp4  # 指定目标语言（默认 zh）
+#   bash subtitle.sh --no-retime 视频.mp4  # 跳过时间轴校正
 #
 # 步骤: ① ffmpeg 抽取音频(<名字>.wav，16k 单声道无损，体积小、便于复用)
 #       ② transcribe 生成 <名字>_<语言>.ass   ③ translate 生成双语 <名字>.ass
+#       ④ retime 用音频能量校正每段起止（ass_retime，--no-retime 可关）
 # 结果: <名字>_<语言>.ass（原文）+ <名字>.ass（双语，与视频同名 → VLC 打开视频自动加载）
 # 依赖 StaticPy 的部分用绝对路径（/opt/StaticPy）；翻译需 llama.cpp 服务（未启动则自动拉起）。
 set -euo pipefail
@@ -18,6 +20,7 @@ LLM_HOST_URL="${LLM_HOST:-http://127.0.0.1:8080/v1}"
 
 offset=""
 lang="zh"
+retime=1
 src_lang=""
 files=()
 for a in "$@"; do
@@ -25,6 +28,7 @@ for a in "$@"; do
     --offset=*)    offset="${a#--offset=}" ;;
     --lang=*)      lang="${a#--lang=}" ;;
     --src-lang=*)  src_lang="${a#--src-lang=}" ;;
+    --no-retime)   retime=0 ;;
     *)             files+=("$a") ;;
   esac
 done
@@ -72,9 +76,9 @@ for v in "${files[@]}"; do
   if is_video "$v"; then
     audio="${base}.wav"
     if [ -f "$audio" ]; then
-      echo ">>> [1/3] 已存在音频: $audio"
+      echo ">>> [1/4] 已存在音频: $audio"
     else
-      echo ">>> [1/3] 抽取音频: $v -> $audio"
+      echo ">>> [1/4] 抽取音频: $v -> $audio"
       ffmpeg -nostdin -v error -y -i "$v" -vn -ac 1 -ar 16000 -c:a pcm_s16le "$audio"
       echo "        音频大小: $(du -h "$audio" | cut -f1)"
     fi
@@ -83,7 +87,7 @@ for v in "${files[@]}"; do
   fi
 
   # ② 语音识别（输出 <base>_<语言>.ass）
-  echo ">>> [2/3] transcribe: $audio"
+  echo ">>> [2/4] transcribe: $audio"
   targs=()
   [ -n "$offset" ] && targs+=("--offset=$offset")
   tr_out="$(bash "$HERE/transcribe.sh" "${targs[@]}" "$audio")"
@@ -102,7 +106,14 @@ for v in "${files[@]}"; do
   fi
 
   # ③ 翻译成双语（输出与视频同名的 <base>.ass，VLC 打开视频时自动加载）
-  echo ">>> [3/3] translate: $src"
+  echo ">>> [3/4] translate: $src"
   bash "$HERE/translate.sh" --lang="$lang" --out="${base}.ass" "$src"
+
+  # ④ 时间轴校正：Whisper 的段边界有 ±0.5s 抖动，按音频能量吸附到真实发声处，
+  #    修「还没开口字幕先出来」「说完了字还挂着」。（纯 wav 输入才有参考音轨）
+  if [ "$retime" = 1 ] && [ -f "${base}.ass" ] && [ "${audio##*.}" = "wav" ] && [ "${base}.ass" != "$src" ]; then
+    echo ">>> [4/4] retime: ${base}.ass"
+    bash "$HERE/ass_retime.sh" "${base}.ass" "$audio" || echo "  ! retime 失败，时间轴保留原样"
+  fi
 done
 echo "完成，用时 $(( $(date +%s) - t0 ))s"
