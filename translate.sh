@@ -4,5 +4,5 @@ set -euo pipefail
 
 HERE="$(cd "$(dirname "$0")" && pwd)"
 
-export LD_LIBRARY_PATH="/opt/StaticPy/cpp/llm${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+export LD_LIBRARY_PATH="$HERE${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
 exec "$HERE/translate" "$@"
