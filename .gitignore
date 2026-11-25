@@ -212,3 +212,11 @@ __marimo__/
 
 # subtitle.sh 抽取的音频
 *.wav
+
+# lite 本地记忆 / 锁文件
+/mem.bin
+/mem.idx
+/mem.lock
+
+# StaticPy 构建元信息
+*.build-info.json

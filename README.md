@@ -400,9 +400,15 @@ bash build.sh
 会依次：
 1. 编译 `libwhisper.so`（`/opt/StaticPy/cpp/whisper`）
 2. 编译 `libllm.so`（`/opt/StaticPy/cpp/llm`）
-3. StaticPy AOT 编译 `transcribe` / `translate` 两个二进制
+3. 调工具链唯一构建入口 `$ROOT/staticpy/static_build.sh` AOT 编译
+   `transcribe` / `translate`，产物靠 `STATICPY_OUTDIR` **只落本项目目录**
+   （工具链仓库保持干净）
 
-> 依赖 StaticPy 工具链与 C++ 源码，路径固定为 `/opt/StaticPy`。
+> 依赖 StaticPy 独立项目（默认 `/opt/StaticPy`，可用 `STATICPY_ROOT=/path` 覆盖）
+> 及其 C++ 源码。`build.sh` 自己不实现任何构建步骤，只按顺序调
+> `cpp/{whisper,llm}/build.sh` 与 `staticpy/static_build.sh`。
+> 产物走工具链默认的共享运行时（`rpath → $ROOT/dist/libstaticpyrt.so`，约 16KB
+> stub）；要单文件 ELF 用 `STATICPY_STATIC_RT=1 bash build.sh`（约 4.3MB）。
 
 ---
 
@@ -501,7 +507,6 @@ my-trans/
 | `WHISPER_LOGPROB_THRESHOLD` | 与 `no_speech` 配合：仅“无语音概率高且置信度低于此值”才丢窗，避免误删真实对白 | `-1.0` |
 | `WHISPER_MAX_CHAR_RUN` | 同一字连续重复≥该值才丢弃（默认关，避免误删真实发声） | `0`（关） |
 | `WHISPER_DROP_PHRASES` | 可选：幻觉短语黑名单（逗号分隔；**默认空=不删**） | 空（关闭） |
-| `SUB_CLEAN_JA` | 生成后运行 clean_ja.py 社区正则清洗（音效/片尾，默认关） | `0`（关） |
 | `WHISPER_PROFILE` | 非空则打印分段耗时 | 关 |
 
 > 默认**不做**短语黑名单：仅凭文本无法区分「真的说了」与幻觉，误删真台词不可接受。

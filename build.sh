@@ -1,25 +1,26 @@
 #!/bin/bash
-# build.sh — 用 StaticPy 工具链把 transcribe/translate 编译成独立二进制
+# build.sh — 用独立 StaticPy 项目（默认 /opt/StaticPy）编译 transcribe / translate
 #
-# 产物: ./transcribe, ./translate (+ 各自 .so)
-# 依赖 StaticPy 的部分一律用绝对路径 (/opt/StaticPy)。
+# 产物: ./transcribe、./translate（+ 各自 .so、build-info.json），只落本项目目录。
+# 构建逻辑一律交给工具链自带入口，本脚本不自己实现任何一步：
+#   C ABI 库   $ROOT/cpp/{whisper,llm}/build.sh
+#   AOT 编译   $ROOT/staticpy/static_build.sh   （工具链唯一构建入口）
+# STATICPY_ROOT 可覆盖工具链位置。
 set -euo pipefail
 
 HERE="$(cd "$(dirname "$0")" && pwd)"
+ROOT="${STATICPY_ROOT:-/opt/StaticPy}"
 
-STATICPY_REPO="/opt/StaticPy"
-WHISPER_CPP="/opt/StaticPy/cpp/whisper"
-LLM_CPP="/opt/StaticPy/cpp/llm"
-STATICPY_BUILD="/opt/StaticPy/staticpy/static_build_comfycli.sh"
+# 1) C ABI 库（.so 就地留在 $ROOT/cpp/*/，运行时由 *_ffi.scm + LD_LIBRARY_PATH 加载）
+bash "$ROOT/cpp/whisper/build.sh"
+bash "$ROOT/cpp/llm/build.sh"
 
-# 1) 编译 C ABI 库
-bash "$WHISPER_CPP/build.sh"   # libwhisper.so：CT2 Whisper + 自写 log-mel
-bash "$LLM_CPP/build.sh"       # libllm.so：Hunyuan-MT (llama.cpp) HTTP 封装
-
-# 2) StaticPy AOT 编译（Python 子集 → Scheme → ELF），产物取回本项目目录
+# 2) StaticPy AOT 编译：裸名产物目录由 STATICPY_OUTDIR 指定（工具链自带机制）
+export STATICPY_OUTDIR="$HERE"
 for app in transcribe translate; do
-  ( cd /opt/StaticPy && bash "$STATICPY_BUILD" \
-      "$HERE/$app.static.py" "$app" "$HERE/${app}_ffi.scm" )
-  cp -f "/opt/StaticPy/$app" "/opt/StaticPy/$app.so" "$HERE/"
-  echo "OK: $HERE/$app"
+    bash "$ROOT/staticpy/static_build.sh" \
+        "$HERE/$app.static.py" "$app" "$HERE/${app}_ffi.scm"
 done
+
+echo "=== 完成 ==="
+ls -l "$HERE/transcribe" "$HERE/transcribe.so" "$HERE/translate" "$HERE/translate.so"
