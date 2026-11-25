@@ -165,6 +165,11 @@ bash ass_retime.sh --stats  video.ass video.wav   # 打印位移分布
 - **逐条翻译**（中日韩等不分词语言）：Whisper 分段往往已是短语级，聚合再回切会拆散专名
   （「武藤」→「武 / 藤」），所以逐条翻译。默认按源语文字**自动选择**。
 
+**译文质检兜底**：每行译文落地前都过一遍检查——空、只剩标点、等于原文回显、
+或源文有英文却一个汉字都没有（如 `now!` → `！`、`Akron Capital?` → `Akron Capital？`，
+只换了个全角标点）——都算没译好：先换温度 0.3 重译一次，仍不合格就**只保留原文**，
+不往字幕上贴半截鬼话。
+
 温度 0，确定性输出；只改写 Dialogue 文本，时间轴与条数不变。
 
 | 环境变量 | 说明 | 默认 |
@@ -180,8 +185,9 @@ bash ass_retime.sh --stats  video.ass video.wav   # 打印位移分布
 把整段译文压到前几行（整句译文错位到相邻行）——所以组内必须带 `[n]` 标记，
 条数与时间轴才能和原文 1:1 对齐。
 
-C ABI 侧（`cpp/llm/`）是工具链 `llm` 的**本项目副本**，唯一改动就是 `SUB_MARK`
-标记翻译；产物 `libllm.so` 落在本项目根目录，由 `translate.sh` 的 `LD_LIBRARY_PATH` 加载。
+C ABI 侧（`cpp/llm/`）是工具链 `llm` 的**本项目副本**，改动是 `SUB_MARK`
+标记翻译与译文质检兜底；产物 `libllm.so` 落在本项目根目录，由 `translate.sh` 的
+`LD_LIBRARY_PATH` 加载。
 
 ---
 

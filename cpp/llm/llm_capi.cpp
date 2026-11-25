@@ -35,6 +35,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <mutex>
+#include <set>
 #include <string>
 #include <vector>
 #include <algorithm>
@@ -284,6 +285,13 @@ bool IsCjk(unsigned int c) {
          (c >= 0x3000 && c <= 0x303F);
 }
 
+// 「字」：汉字/假名/谚文（全角标点、※、… 之类不算）
+bool IsCjkWord(unsigned int c) {
+  return (c >= 0x3040 && c <= 0x30FF) || (c >= 0x3400 && c <= 0x4DBF) ||
+         (c >= 0x4E00 && c <= 0x9FFF) || (c >= 0xF900 && c <= 0xFAFF) ||
+         (c >= 0xAC00 && c <= 0xD7AF);
+}
+
 bool IsOpening(unsigned int c) {
   switch (c) {
     case '(': case '[': case '{': case '<': case '"': case '\'':
@@ -463,13 +471,14 @@ std::string BuildPrompt(const std::string& target_name, const std::string& text)
   return p;
 }
 
-std::string TranslateOne(const std::string& text, const std::string& target_name) {
+std::string TranslateOne(const std::string& text, const std::string& target_name,
+                           double temperature = 0.0) {
   json payload;
   payload["model"] = Model();
   payload["messages"] = json::array(
       {{{"role", "user"}, {"content", BuildPrompt(target_name, text)}}});
   payload["max_tokens"] = 2048;
-  payload["temperature"] = 0;
+  payload["temperature"] = temperature;
 
   std::string resp;
   if (!HttpPost(BaseUrl().base + "/chat/completions", payload.dump(), resp)) return "";
@@ -498,16 +507,87 @@ void EmitRow(const DialogueRow& r, const std::string& trans, std::string& events
     events += r.prefix + r.original + "\\N" + trans + "\n";
 }
 
+// 标记组的提示词：这些行是**同一个句子被切开的片段**，
+// 必须整句连贯地译，再按片段边界切成同样条数，
+// 否则模型会给每行各译出一个完整句子（意思重复、逐行不对应）。
+// 归一化（只留字母数字与 CJK、转小写）用于判断「译文其实还是原文」或「两行译重了」
+std::string NormKey(const std::string& s) {
+  std::string o;
+  for (size_t i = 0; i < s.size();) {
+    unsigned char c = (unsigned char)s[i];
+    if (c < 0x80) {
+      if (isalnum(c)) o += (char)tolower(c);
+      ++i;
+    } else {
+      size_t n = c >= 0xF0 ? 4 : c >= 0xE0 ? 3 : 2;
+      // 只保留真正的字：全角逗号/句号/问号不参与比较，
+      // 否则 "1,070." → "1,070。" 会被当成「已翻译」而漏过回显检查。
+      if (IsCjkWord(Utf8Decode(s.substr(i, n)))) o += s.substr(i, n);
+      i += n;
+    }
+  }
+  return o;
+}
+
+bool HasAsciiAlpha(const std::string& s) {
+  for (unsigned char c : s)
+    if (c < 0x80 && isalpha(c)) return true;
+  return false;
+}
+
+// 真正的「字」：汉字/假名/谚文。不含 0x3000 段与 0xFF00 段的全角标点，
+// 否则 "Akron Capital？" 这种只把问号换成全角的也会被当成已译成中文。
+bool HasCjk(const std::string& s) {
+  for (const auto& ch : Utf8Split(s))
+    if (IsCjkWord(Utf8Decode(ch))) return true;
+  return false;
+}
+
+// 目标语言是不是中文（决定「译文里必须出现汉字」这条硬检查）
+bool WantsCjkTarget(const std::string& target) {
+  std::string t;
+  for (char c : target) t += (char)tolower((unsigned char)c);
+  return t.find("chinese") != std::string::npos ||
+         t.find("zh") != std::string::npos || t.find("中") != std::string::npos;
+}
+
+// 译文质量兜底：空、只有标点、原文回显、源文有英文却译出零汉字 —— 都算没译好。
+// 这些行以前会原样带译文（如 "now!" → "！"、"Repeat that in English." →
+// "Please repeat that in English."），现在退回重译，仍不行就只保留原文。
+bool BadTranslation(const std::string& src, const std::string& trans,
+                    const std::string& target) {
+  std::string k = NormKey(trans);
+  if (k.empty()) return true;                     // 译空 / 只剩标点
+  if (k == NormKey(src)) return true;             // 原文回显
+  if (WantsCjkTarget(target) && HasAsciiAlpha(src) && !HasCjk(trans))
+    return true;                                  // 英文原文却没译出中文
+  return false;
+}
+
+std::string TranslateOneChecked(const std::string& text, const std::string& target_name);
+
+std::string BuildMarkPrompt(const std::string& target_name, int n,
+                            const std::string& block) {
+  std::string p =
+      "下面每行开头的编号是字幕行号（共 " + std::to_string(n) +
+      " 行，有的行是同一句被切开的片段）。请结合整段上下文译成 " + target_name +
+      "，逐行对应输出：每行一个编号 [i] 加该行译文，行数与编号必须与原文完全一致，"
+      "不要合并或拆分行，不要重复整句意思。";
+  p += "\n\n" + block;
+  return p;
+}
+
 // 带行号标记的整组翻译：整组原文一次性送模型（上下文完整），
 // 每行前缀 "[n] " 让模型逐行输出同号译文，从而天然逐行对齐；
-// 模型若丢标记/合并行，则返回空，由上层退回「整句 + 字数比例回切」。
-std::string TranslateBlock(const std::string& block, const std::string& target_name) {
+// 模型若丢标记/合并行，则返回空，由上层判断是否退回原路径。
+std::string TranslateBlock(const std::string& block, const std::string& target_name,
+                           int n, double temperature = 0) {
   json payload;
   payload["model"] = Model();
   payload["messages"] = json::array(
-      {{{"role", "user"}, {"content", BuildPrompt(target_name, block)}}});
+      {{{"role", "user"}, {"content", BuildMarkPrompt(target_name, n, block)}}});
   payload["max_tokens"] = 2048;
-  payload["temperature"] = 0;
+  payload["temperature"] = temperature;
 
   std::string resp;
   if (!HttpPost(BaseUrl().base + "/chat/completions", payload.dump(), resp)) return "";
@@ -523,62 +603,186 @@ std::string TranslateBlock(const std::string& block, const std::string& target_n
 // 从带 "[n]" 标记的输出里取出第 n 行译文（n 从 1 开始）。
 // 模型可能把多行并到某一行、或丢标记，因此按「标记出现顺序」切段，
 // 缺号的那几行留空，由上层判断是否采用。
-std::vector<std::string> SplitByMarkers(const std::string& raw, int n) {
+std::vector<std::string> SplitByMarkers(const std::string& raw, int n,
+                                        const std::vector<std::string>& src) {
   std::vector<std::string> out(n);
+  // 模型常先把原文整段回显一遍再翻译，标记会出现两轮：
+  // 先收集所有标记出现位置，取「最后一轮按 1..n 递增、且段数够」的那一轮。
+  struct Hit { size_t pos; int idx; };
+  std::vector<Hit> hits;
+  for (int i = 1; i <= n; ++i) {
+    std::string tag = "[" + std::to_string(i) + "]";
+    for (size_t p = raw.find(tag); p != std::string::npos; p = raw.find(tag, p + 1))
+      hits.push_back({p, i});
+  }
+  std::stable_sort(hits.begin(), hits.end(),
+                   [](const Hit& a, const Hit& b) { return a.pos < b.pos; });
+  // 找最后一轮从 1 开始、严格递增的序列
+  size_t best = 0;
+  bool found = false;
+  for (size_t i = 0; i < hits.size(); ++i) {
+    if (hits[i].idx != 1) continue;
+    size_t j = i, want = 1;
+    while (j < hits.size() && hits[j].idx == want) { ++j; ++want; }
+    if ((int)(want - 1) >= n) { best = i; found = true; }  // 取最后一轮完整的
+  }
+  if (!found) return out;
   for (int i = 0; i < n; ++i) {
-    std::string tag = "[" + std::to_string(i + 1) + "]";
-    size_t p = raw.find(tag);
-    if (p == std::string::npos) continue;
-    size_t b = p + tag.size();
+    size_t b = hits[best + i].pos + std::string("[" + std::to_string(i + 1) + "]").size();
     size_t e = raw.size();
-    for (int j = 1; j <= n; ++j) {           // 找下一个出现的标记（任意号）
-      std::string t2 = "[" + std::to_string(j) + "]";
-      size_t q = raw.find(t2, b);
-      if (q != std::string::npos && q < e) e = q;
+    for (size_t h = best + i + 1; h < hits.size(); ++h) {
+      std::string t2 = "[" + std::to_string(hits[h].idx) + "]";
+      size_t q = hits[h].pos;
+      if (hits[h].idx <= n && q > b) { e = q; break; }
+      (void)t2;
     }
-    out[i] = Trim(SanitizeAssText(raw.substr(b, e - b)));
+    std::string seg = Trim(SanitizeAssText(raw.substr(b, e - b)));
+    seg = Trim(std::string(seg.c_str()));  // 去掉行首换行/冒号残留
+    while (!seg.empty() && (seg[0] == '\n' || seg[0] == ':' || seg[0] == '\r' ||
+                            seg[0] == ' '))
+      seg.erase(0, 1);
+    // 段内可能还带「翻译：」之类的引导词与换行残留
+    size_t nl = seg.find('\n');
+    if (nl != std::string::npos && seg.find('\n', nl + 1) != std::string::npos)
+      seg = Trim(seg.substr(0, nl));
+    if (i < (int)src.size() && seg == Trim(src[i])) seg.clear();  // 原文回显不算译文
+    out[i] = seg;
   }
   return out;
 }
 
+// 单行翻译 + 质量兜底：不合格就换温度重试一次，仍不合格返回空
+// （EmitRow 对空译文只输出原文，不会留下半截鬼话）。
+std::string TranslateOneChecked(const std::string& text, const std::string& target_name) {
+  if (text.empty()) return "";
+  std::string t = TranslateOne(text, target_name, 0.0);
+  if (!BadTranslation(text, t, target_name)) return t;
+  std::string t2 = TranslateOne(text, target_name, 0.3);
+  if (!BadTranslation(text, t2, target_name)) return t2;
+  return "";
+}
+
 // 把一组连续字幕条当作一个句子翻译，再按原文字数比例回切。
 void ProcessGroup(const std::vector<DialogueRow>& g, const std::string& target_name,
-                  std::string& events, int& count) {
+                  std::string& events, int& count, int depth = 0);
+
+// 逐行对应地译一段连续字幕：整段带 [i] 一次性送模型（上下文完整、逐行不错位）。
+// 返回 false 表示这批没译好，交给上层兜底。
+bool TranslateMarked(const std::vector<DialogueRow>& g, const std::string& target_name,
+                     std::vector<std::string>& got) {
+  std::vector<std::string> srcs;
+  std::string block;
+  for (const auto& r : g) {
+    if (r.src.empty()) continue;
+    srcs.push_back(r.src);
+    block += "[" + std::to_string(srcs.size()) + "] " + r.src + "\n";
+  }
+  int n = (int)srcs.size();
+  if (n == 0) return false;
+  for (int attempt = 0; attempt < 2; ++attempt) {
+    got = SplitByMarkers(TranslateBlock(block, target_name, n, attempt ? 0.3 : 0.0), n, srcs);
+    bool bad = false;
+    std::set<std::string> seen;
+    for (int i = 0; i < n; ++i) {
+      std::string k = NormKey(got[i]);
+      if (BadTranslation(srcs[i], got[i], target_name)) { bad = true; break; }
+      if (k.empty() || k == NormKey(srcs[i])) { bad = true; break; }  // 漏行/回显原文
+      if (!seen.insert(k).second) { bad = true; break; }              // 两行译成同一句
+    }
+    if (!bad) return true;
+  }
+  return false;
+}
+
+void EmitGroup(const std::vector<DialogueRow>& g, const std::string& target_name,
+               std::string& events, int& count, int depth) {
+  size_t idx = 0;
+  // 只处理有原文的行；空行原样输出
+  while (idx < g.size()) {
+    while (idx < g.size() && g[idx].src.empty()) {
+      EmitRow(g[idx], "", events);
+      ++count;
+      ++idx;
+    }
+    size_t end = idx;
+    while (end < g.size() && !g[end].src.empty()) ++end;
+    if (idx >= end) break;
+    std::vector<DialogueRow> run(g.begin() + idx, g.begin() + end);
+    ProcessGroup(run, target_name, events, count, depth);
+    idx = end;
+  }
+}
+
+void ProcessGroup(const std::vector<DialogueRow>& g, const std::string& target_name,
+                  std::string& events, int& count, int depth) {
   if (g.size() == 1) {
     const DialogueRow& r = g[0];
-    EmitRow(r, r.src.empty() ? "" : TranslateOne(r.src, target_name), events);
+    EmitRow(r, r.src.empty() ? "" : TranslateOneChecked(r.src, target_name), events);
     ++count;
     return;
   }
 
-  // ① 上下文对齐路径：整组原文加行号一次性送模型（上下文完整），
-  //    逐行取回译文（不错位）；标记丢失过多则退回整句+回切。
-  if (EnvInt("SUB_MARK", 1) != 0) {
-    std::vector<int> alive;
-    std::string block;
-    for (size_t i = 0; i < g.size(); ++i) {
-      if (g[i].src.empty()) continue;
-      alive.push_back((int)i);
-      block += "[" + std::to_string(alive.size()) + "] " + g[i].src + "\n";
-    }
-    if (!block.empty()) {
-      std::vector<std::string> got = SplitByMarkers(TranslateBlock(block, target_name),
-                                                    (int)alive.size());
-      int filled = 0;
-      for (const auto& t : got) if (!t.empty()) ++filled;
-      if (filled * 2 >= (int)alive.size()) {     // 至少一半行拿到译文才采用
-        size_t k = 0;
-        for (size_t i = 0; i < g.size(); ++i) {
-          std::string t;
-          if (!g[i].src.empty()) {
-            t = got[k++];
-            if (t.empty()) t = TranslateOne(g[i].src, target_name);  // 漏行兜底逐条翻
-          }
-          EmitRow(g[i], t, events);
-          ++count;
-        }
-        return;
+  // ① 上下文对齐路径
+  if (EnvInt("SUB_MARK", 1) != 0 && depth < 3) {
+    std::vector<std::string> got;
+    if (TranslateMarked(g, target_name, got)) {
+      size_t k = 0;
+      for (const auto& r : g) {
+        std::string t;
+        if (!r.src.empty()) t = got[k++];
+        EmitRow(r, t, events);
+        ++count;
       }
+      return;
+    }
+    // 部分行对不上：能译的先落盘，对不上的相邻行缩成小组再走一遍（更短更不容易串行）
+    std::vector<std::string> srcs;
+    std::string block;
+    for (const auto& r : g) {
+      if (r.src.empty()) continue;
+      srcs.push_back(r.src);
+      block += "[" + std::to_string(srcs.size()) + "] " + r.src + "\n";
+    }
+    int n = (int)srcs.size();
+    std::vector<std::string> raw = SplitByMarkers(TranslateBlock(block, target_name, n), n, srcs);
+    std::vector<bool> okv(n, false);
+    std::set<std::string> seen;
+    int ok = 0;
+    for (int i = 0; i < n; ++i) {
+      std::string k = NormKey(raw[i]);
+      if (BadTranslation(srcs[i], raw[i], target_name)) continue;
+      if (k.empty() || k == NormKey(srcs[i]) || !seen.insert(k).second) continue;
+      okv[i] = true;
+      ++ok;
+    }
+    if (ok * 2 >= n) {
+      size_t k = 0;
+      size_t i = 0;
+      while (i < g.size()) {
+        if (g[i].src.empty()) {
+          EmitRow(g[i], "", events);
+          ++count;
+          ++i;
+          continue;
+        }
+        if (okv[k]) {
+          EmitRow(g[i], raw[k], events);
+          ++count;
+          ++k;
+          ++i;
+          continue;
+        }
+        size_t j = i;                       // 收集连续对不上的行
+        std::vector<DialogueRow> bad;
+        while (j < g.size() && !g[j].src.empty() && !okv[k]) {
+          bad.push_back(g[j]);
+          ++k;
+          ++j;
+        }
+        ProcessGroup(bad, target_name, events, count, depth + 1);
+        i = j;
+      }
+      return;
     }
   }
 
@@ -597,7 +801,7 @@ void ProcessGroup(const std::vector<DialogueRow>& g, const std::string& target_n
   std::string trans = joined.empty() ? "" : TranslateOne(joined, target_name);
   if (trans.empty()) {  // 整句失败：退回逐条
     for (const auto& r : g) {
-      EmitRow(r, r.src.empty() ? "" : TranslateOne(r.src, target_name), events);
+      EmitRow(r, r.src.empty() ? "" : TranslateOneChecked(r.src, target_name), events);
       ++count;
     }
     return;
@@ -607,7 +811,12 @@ void ProcessGroup(const std::vector<DialogueRow>& g, const std::string& target_n
   for (const auto& r : g) weights.push_back(Utf8Split(r.src).size());
   std::vector<std::string> pieces = SplitByWeights(trans, weights);
   for (size_t i = 0; i < g.size(); ++i) {
-    EmitRow(g[i], i < pieces.size() ? pieces[i] : std::string(), events);
+    std::string piece = i < pieces.size() ? pieces[i] : std::string();
+    // 回切出来的碎片同样要过质检：空的、只剩标点/括号的、原文回显的，
+    // 单独重译这一条（回切是按字数比例切的，偶尔会把括号尾巴切到别行）。
+    if (BadTranslation(g[i].src, piece, target_name))
+      piece = TranslateOneChecked(g[i].src, target_name);
+    EmitRow(g[i], piece, events);
     ++count;
   }
 }
@@ -671,7 +880,7 @@ int llm_translate_ass(const char* in_ass, const char* out_ass, const char* targe
 
   auto flush = [&]() {
     if (group.empty()) return;
-    ProcessGroup(group, target_name, events, count);
+    ProcessGroup(group, target_name, events, count, 0);
     group.clear();
   };
 
