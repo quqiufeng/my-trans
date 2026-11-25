@@ -243,6 +243,36 @@ ls -l 成片/*.mp4
 逐句配音取实测时长 → 句间停顿在 `max-gap` 内均匀拉伸 → 仍有余量则起播点后移（≤1.5s）→ 还剩就留片尾并报「偏短」。
 语速只在 **0.88~1.15 倍**内微调整段，**绝不删句**。
 
+## 路线 B：EDL → 静音字幕片（不走 TTS）
+
+`dub.lua` 是「文案 → 配音 → 对时长」；如果不需要 AI 配音，只要按画面剪辑 + 烧字幕，
+走 `render.sh` 这条更短的：
+
+```bash
+# 1) 文案 → EDL（match.lua 按画面阶段窗口挑 in/out）
+luajit dub/match.lua --text 文案.txt --shot dub/shot/IMG_0195.json --out edl.json
+
+# 2) EDL → 成片（逐段切 → concat → 烧 ASS，输出丢原声）
+bash dub/render.sh edl.json ~/dub/out.mp4
+```
+
+`render.sh` 只认两个东西：EDL 的 `src` 与每项 `in/out/text/dur`。
+字幕按 EDL 顺序**从头累加**排时间轴，与画面段一一对应。
+
+| 参数 | 默认 | 说明 |
+|---|---|---|
+| `--keep-audio` | 关（`-an` 丢原声） | 保留素材原声，AAC 160k 单声道 |
+| `--crf=N` | 20 | 成片质量 |
+| `--preset=` | medium | x264 预设 |
+| `--w=` / `--h=` | 1080 / 1920 | 输出尺寸（竖屏默认） |
+
+两个坑（已修）：
+
+1. **一次 `filter_complex` 切 13 段 1080p hevc 会 OOM 被杀** —— 现在逐段
+   `-ss/-to` 快 seek 转码（一次只解一路），写 `-crf 18` 中间件，再 `concat` + 烧字幕。
+2. **手机素材 ffprobe 报 1920×1080 但带 `rotation=-90`**，真实是竖屏 1080×1920。
+   按 `width/height` 排 `pad` 会得到上下大黑边，所以默认按竖屏出。
+
 ## 依赖
 
 `luajit`、`ffmpeg`/`ffprobe`、克隆 TTS（cosyvoice 默认）或 `sherpa-onnx`（kokoro 引擎）。

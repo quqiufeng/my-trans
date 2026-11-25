@@ -221,3 +221,8 @@ __marimo__/
 
 # StaticPy 构建元信息
 *.build-info.json
+
+# dub 画面分析产物：每个源素材都要重新跑一遍，不入库
+/dub/shot/
+keys/
+!keys.sh
